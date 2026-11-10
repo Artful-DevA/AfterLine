@@ -1,0 +1,7 @@
+# AfterLine is a static site. Publish only the website folder.
+[build]
+  publish = "website"
+  command = ""
+
+[build.environment]
+  NODE_VERSION = "22"
