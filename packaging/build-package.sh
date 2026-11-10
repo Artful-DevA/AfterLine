@@ -23,7 +23,7 @@ if command -v apt-get >/dev/null 2>&1; then
     apt-get install -y -q --no-install-recommends build-essential cmake pkg-config git ca-certificates \
         qt6-base-dev qt6-base-dev-tools libqt6svg6-dev libgl-dev libpipewire-0.3-dev libopus-dev libogg-dev \
         libsqlite3-dev dpkg-dev file \
-        pipewire pipewire-bin wireplumber dbus
+        pipewire pipewire-bin dbus && { apt-get install -y -q --no-install-recommends wireplumber || true; } && { apt-get install -y -q --no-install-recommends pipewire-media-session 2>/dev/null || true; }
     GEN=DEB
 elif command -v dnf >/dev/null 2>&1; then
     dnf install -y -q gcc-c++ cmake pkgconf git qt6-qtbase-devel qt6-qtsvg-devel pipewire-devel opus-devel \

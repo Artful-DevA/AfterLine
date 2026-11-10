@@ -66,6 +66,9 @@ void fillNode(NodeInfo &n, const spa_dict *props)
     const std::string serial = prop(props, PW_KEY_OBJECT_SERIAL);
     if (!serial.empty())
         n.serial = std::strtoull(serial.c_str(), nullptr, 10);
+    const std::string priority = prop(props, PW_KEY_PRIORITY_SESSION);
+    if (!priority.empty())
+        n.priority = std::atoi(priority.c_str());
     const std::string pid = prop(props, PW_KEY_APP_PROCESS_ID);
     if (!pid.empty()) {
         n.pid = std::atoi(pid.c_str());

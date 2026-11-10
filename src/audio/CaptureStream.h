@@ -73,6 +73,6 @@ private:
     void setState(State s, const std::string &message);
 };
 
-const char *toString(CaptureStream::State s);
+const char *stateName(CaptureStream::State s);
 
 }  // namespace afterline::audio

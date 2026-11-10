@@ -148,6 +148,11 @@ if(AFTERLINE_BUILD_TESTS)
   # Needs a running PipeWire + WirePlumber session; tests/run-pipewire-tests.sh
   # starts a private one with virtual devices. Skips itself when none exists.
   afterline_test(test_pipewire)
+  add_executable(afterline-fake-app tests/tools/fake_app.cpp)
+  target_include_directories(afterline-fake-app PRIVATE src)
+  target_link_libraries(afterline-fake-app PRIVATE PkgConfig::PIPEWIRE m)
+  target_compile_definitions(test_pipewire PRIVATE AFTERLINE_FAKE_APP="$<TARGET_FILE:afterline-fake-app>")
+  add_dependencies(test_pipewire afterline-fake-app)
   set_tests_properties(test_pipewire PROPERTIES LABELS pipewire TIMEOUT 300 SKIP_RETURN_CODE 77)
 endif()
 

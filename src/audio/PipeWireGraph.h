@@ -36,6 +36,7 @@ struct NodeInfo {
     std::string mediaName;    // media.name (e.g. a browser tab title)
     std::string mediaRole;
     int pid = 0;
+    int priority = 0;         // priority.session: how session managers rank defaults
     bool ours = false;        // created by this process
 
     bool isSink() const { return mediaClass == "Audio/Sink" || mediaClass == "Audio/Duplex"; }

@@ -10,7 +10,7 @@
 #   tests/run-pipewire-tests.sh sh -c 'your commands'
 set -eu
 
-for tool in pipewire wireplumber dbus-daemon pw-cli; do
+for tool in pipewire dbus-daemon pw-cli; do
     command -v "$tool" >/dev/null 2>&1 || { echo "missing $tool" >&2; exit 77; }
 done
 
@@ -40,9 +40,21 @@ until pw-cli info 0 >/dev/null 2>&1; do
     i=$((i + 1)); [ $i -gt 50 ] && { echo "pipewire did not start" >&2; cat "$RUNTIME/pipewire.log" >&2; exit 1; }
     sleep 0.1
 done
-wireplumber >"$RUNTIME/wireplumber.log" 2>&1 &
-WP_PID=$!
-sleep 1.5
+# Session manager: WirePlumber, or pipewire-media-session where WirePlumber
+# cannot run (e.g. WirePlumber 0.4.8 on Ubuntu 22.04 exits in containers
+# without logind).
+if command -v wireplumber >/dev/null 2>&1; then
+    wireplumber >"$RUNTIME/wireplumber.log" 2>&1 &
+    WP_PID=$!
+    sleep 1.5
+    kill -0 "$WP_PID" 2>/dev/null || WP_PID=""
+fi
+if [ -z "${WP_PID:-}" ] && command -v pipewire-media-session >/dev/null 2>&1; then
+    pipewire-media-session >"$RUNTIME/media-session.log" 2>&1 &
+    WP_PID=$!
+    sleep 1.5
+fi
+[ -n "${WP_PID:-}" ] || { echo "no PipeWire session manager could be started" >&2; exit 77; }
 
 if [ $# -eq 0 ]; then
     set -- ctest --test-dir build --output-on-failure -L pipewire

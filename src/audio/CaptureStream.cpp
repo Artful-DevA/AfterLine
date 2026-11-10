@@ -11,7 +11,7 @@
 
 namespace afterline::audio {
 
-const char *toString(CaptureStream::State s)
+const char *stateName(CaptureStream::State s)
 {
     switch (s) {
     case CaptureStream::State::Idle: return "idle";
@@ -47,42 +47,32 @@ struct CaptureStream::Impl {
     int graphListener = 0;
     int channels = 2;
     uint32_t ourNode = SPA_ID_INVALID;
-    uint32_t targetNode = SPA_ID_INVALID;
     bool stopping = false;
-    bool everConnected = false;
-    std::set<uint32_t> appNodes;                               // tracked app streams
-    std::map<std::pair<uint32_t, uint32_t>, pw_proxy *> links; // (out port, in port)
+    bool targetSeen = false;                                   // explicit device was present
+    std::set<uint32_t> sources;                                // nodes whose audio we link in
+    std::map<std::pair<uint32_t, uint32_t>, pw_proxy *> links; // (their port, our port)
     std::vector<float> mono;
 
     PipeWireGraph &graph() { return q->m_graph; }
     const Config &config() { return q->m_config; }
-    bool isApp() { return config().kind == Kind::Application; }
+    Kind kind() { return config().kind; }
+    bool isApp() { return kind() == Kind::Application; }
+    bool fromOutput() { return kind() == Kind::DefaultOutput || kind() == Kind::OutputDevice; }
+    bool explicitDevice() { return kind() == Kind::OutputDevice || kind() == Kind::InputDevice; }
 
-    static void onStateChanged(void *data, pw_stream_state old, pw_stream_state state, const char *error)
+    static void onStateChanged(void *data, pw_stream_state, pw_stream_state state, const char *error)
     {
         auto *self = static_cast<Impl *>(data);
         if (self->stopping)
             return;
-        switch (state) {
-        case PW_STREAM_STATE_PAUSED:
-        case PW_STREAM_STATE_STREAMING:
-            self->everConnected = true;
-            self->ourNode = pw_stream_get_node_id(self->stream);
-            if (self->isApp()) {
-                self->relinkAll();
-            } else if (state == PW_STREAM_STATE_STREAMING) {
-                self->q->setState(State::Active, {});
-            } else if (self->q->state() != State::Active) {
-                self->q->setState(State::Waiting, "Waiting for audio");
+        if (state == PW_STREAM_STATE_PAUSED || state == PW_STREAM_STATE_STREAMING) {
+            const uint32_t id = pw_stream_get_node_id(self->stream);
+            if (id != self->ourNode) {
+                self->ourNode = id;
+                self->recompute();
             }
-            break;
-        case PW_STREAM_STATE_ERROR:
-        case PW_STREAM_STATE_UNCONNECTED:
-            if (self->everConnected || state == PW_STREAM_STATE_ERROR)
-                self->q->setState(State::Lost, error ? error : "The audio source was disconnected");
-            break;
-        default:
-            break;
+        } else if (state == PW_STREAM_STATE_ERROR) {
+            self->q->setState(State::Failed, error ? error : "The capture stream failed");
         }
     }
 
@@ -106,17 +96,17 @@ struct CaptureStream::Impl {
                         self->mono[i] = 0.5f * (in[2 * i] + in[2 * i + 1]);
                     self->onData(self->mono.data(), frames);
                 }
-                if (!self->isApp() && self->q->state() != State::Active)
-                    self->q->setState(State::Active, {});
             }
         }
         pw_stream_queue_buffer(self->stream, b);
     }
 
+    // AfterLine links every source itself (devices as well as applications),
+    // so recording does not depend on how a particular session manager
+    // (WirePlumber, pipewire-media-session) and version interpret targets.
     bool createStream(std::string *error)
     {
-        const Kind kind = config().kind;
-        const bool input = CaptureStream::isInput(kind);
+        const bool input = CaptureStream::isInput(kind());
         channels = input ? 1 : 2;
         pw_properties *props = pw_properties_new(
             PW_KEY_MEDIA_TYPE, "Audio", PW_KEY_MEDIA_CATEGORY, "Capture",
@@ -124,31 +114,23 @@ struct CaptureStream::Impl {
             PW_KEY_NODE_NAME, input ? "afterline-microphone" : "afterline-computer-audio",
             PW_KEY_NODE_DESCRIPTION,
             config().description.empty() ? "AfterLine recording" : config().description.c_str(),
-            nullptr);
-        if (kind == Kind::DefaultOutput || kind == Kind::OutputDevice)
-            pw_properties_set(props, PW_KEY_STREAM_CAPTURE_SINK, "true");
-        if (kind == Kind::OutputDevice || kind == Kind::InputDevice) {
-            // node.target for PipeWire < 0.3.64 (Ubuntu 22.04), target.object after.
-            pw_properties_set(props, PW_KEY_TARGET_OBJECT, config().target.c_str());
-            pw_properties_set(props, "node.target", config().target.c_str());
-            // If the chosen device goes away, do not silently record a
-            // different one; AfterLine reports it and reconnects when it returns.
-            pw_properties_set(props, PW_KEY_NODE_DONT_RECONNECT, "true");
-        }
-        if (kind == Kind::Application) {
-            pw_properties_set(props, PW_KEY_NODE_AUTOCONNECT, "false");
-            // Keep our node running so links made while the app is silent
-            // start delivering the moment it plays.
-            pw_properties_set(props, PW_KEY_NODE_WANT_DRIVER, "true");
-        }
-
+            PW_KEY_NODE_AUTOCONNECT, "false",
+            // Keep our node scheduled so links made while a source is silent
+            // deliver the moment it plays.
+            PW_KEY_NODE_WANT_DRIVER, "true", nullptr);
         stream = pw_stream_new(graph().core(), "AfterLine capture", props);
         if (!stream) {
             if (error)
                 *error = "Could not create a PipeWire capture stream";
             return false;
         }
-        static const pw_stream_events events = [] { pw_stream_events e{}; e.version = PW_VERSION_STREAM_EVENTS; e.state_changed = onStateChanged; e.process = onProcess; return e; }();
+        static const pw_stream_events events = [] {
+            pw_stream_events e{};
+            e.version = PW_VERSION_STREAM_EVENTS;
+            e.state_changed = onStateChanged;
+            e.process = onProcess;
+            return e;
+        }();
         pw_stream_add_listener(stream, &streamListener, &events, this);
 
         spa_audio_info_raw info{};
@@ -164,10 +146,8 @@ struct CaptureStream::Impl {
         uint8_t buffer[1024];
         spa_pod_builder builder = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
         const spa_pod *params[1] = {spa_format_audio_raw_build(&builder, SPA_PARAM_EnumFormat, &info)};
-        auto flags = pw_stream_flags(PW_STREAM_FLAG_MAP_BUFFERS);
-        if (kind != Kind::Application)
-            flags = pw_stream_flags(flags | PW_STREAM_FLAG_AUTOCONNECT);
-        if (pw_stream_connect(stream, PW_DIRECTION_INPUT, PW_ID_ANY, flags, params, 1) < 0) {
+        if (pw_stream_connect(stream, PW_DIRECTION_INPUT, PW_ID_ANY, pw_stream_flags(PW_STREAM_FLAG_MAP_BUFFERS),
+                              params, 1) < 0) {
             if (error)
                 *error = "Could not connect the PipeWire capture stream";
             destroyStream();
@@ -194,37 +174,58 @@ struct CaptureStream::Impl {
             stream = nullptr;
         }
         ourNode = SPA_ID_INVALID;
-        everConnected = false;
     }
 
-    bool matchesApp(const NodeInfo &n)
-    {
-        return n.isAppOutput() && !n.ours && appKey(n) == config().target;
-    }
+    static bool isRealSource(const NodeInfo &n) { return n.isSource() && n.mediaClass != "Audio/Sink"; }
 
-    void updateLinkedCount()
+    // The node name the "default" kinds should follow right now.
+    std::string defaultName(const std::vector<NodeInfo> &nodes)
     {
-        std::set<uint32_t> nodes;
-        const auto ports = graph().ports();
-        std::map<uint32_t, uint32_t> portNode;
-        for (const auto &p : ports)
-            portNode[p.id] = p.nodeId;
-        for (const auto &l : links) {
-            auto it = portNode.find(l.first.first);
-            if (it != portNode.end())
-                nodes.insert(it->second);
+        const bool out = fromOutput();
+        const std::string name = out ? graph().defaultSinkName() : graph().defaultSourceName();
+        const NodeInfo *first = nullptr;
+        for (const auto &n : nodes) {
+            if (n.ours || !(out ? n.isSink() : isRealSource(n)))
+                continue;
+            if (n.name == name)
+                return name;
+            if (!first || n.priority > first->priority || (n.priority == first->priority && n.id < first->id))
+                first = &n;
         }
-        const int count = int(nodes.size());
-        q->m_linkedStreams = count;
-        if (count > 0)
-            q->setState(State::Active, {});
-        else
-            q->setState(State::Waiting, "Waiting for the application to play audio");
+        // No default announced (or it vanished): the device a session manager
+        // would choose, the one with the highest priority.
+        return first ? first->name : std::string();
+    }
+
+    bool matches(const NodeInfo &n, const std::string &defaultTarget)
+    {
+        if (n.ours)
+            return false;
+        switch (kind()) {
+        case Kind::Application: return n.isAppOutput() && appKey(n) == config().target;
+        case Kind::OutputDevice: return n.isSink() && n.name == config().target;
+        case Kind::InputDevice: return isRealSource(n) && n.name == config().target;
+        case Kind::DefaultOutput: return n.isSink() && !defaultTarget.empty() && n.name == defaultTarget;
+        case Kind::DefaultInput: return isRealSource(n) && !defaultTarget.empty() && n.name == defaultTarget;
+        }
+        return false;
+    }
+
+    bool eligiblePort(const PortInfo &p)
+    {
+        // A sink's audio is on its monitor outputs; sources and applications
+        // on their ordinary outputs.
+        return p.output && sources.count(p.nodeId) && (fromOutput() ? p.monitor : !p.monitor);
     }
 
     void linkPort(const PortInfo &out, const std::map<std::string, uint32_t> &ourPorts)
     {
-        for (const auto &ch : targetChannels(out.channel)) {
+        std::vector<std::string> targets;
+        if (ourPorts.count("MONO"))
+            targets = {"MONO"};
+        else
+            targets = targetChannels(out.channel);
+        for (const auto &ch : targets) {
             auto in = ourPorts.find(ch);
             if (in == ourPorts.end())
                 continue;
@@ -249,100 +250,116 @@ struct CaptureStream::Impl {
     {
         if (ourNode == SPA_ID_INVALID)
             return;
-        std::map<std::string, uint32_t> ourPorts;
         const auto ports = graph().ports();
+        std::map<std::string, uint32_t> ourPorts;
         for (const auto &p : ports)
             if (p.nodeId == ourNode && !p.output)
                 ourPorts[p.channel] = p.id;
         if (ourPorts.empty())
             return;
         for (const auto &p : ports)
-            if (p.output && !p.monitor && appNodes.count(p.nodeId))
+            if (eligiblePort(p))
                 linkPort(p, ourPorts);
-        updateLinkedCount();
+    }
+
+    // Brings links in line with the graph: which nodes should feed us now.
+    void recompute()
+    {
+        const auto nodes = graph().nodes();
+        const std::string def = isApp() || explicitDevice() ? std::string() : defaultName(nodes);
+        std::set<uint32_t> wanted;
+        bool targetPresent = false;
+        for (const auto &n : nodes)
+            if (matches(n, def)) {
+                wanted.insert(n.id);
+                targetPresent = true;
+            }
+        // Drop links from nodes that no longer qualify (default changed).
+        const auto ports = graph().ports();
+        std::map<uint32_t, uint32_t> portNode;
+        for (const auto &p : ports)
+            portNode[p.id] = p.nodeId;
+        for (auto it = links.begin(); it != links.end();) {
+            auto pn = portNode.find(it->first.first);
+            if (pn == portNode.end() || !wanted.count(pn->second)) {
+                pw_proxy_destroy(it->second);
+                it = links.erase(it);
+            } else {
+                ++it;
+            }
+        }
+        const bool hadSources = !sources.empty();
+        sources = wanted;
+        relinkAll();
+
+        if (explicitDevice()) {
+            if (targetPresent && !targetSeen) {
+                targetSeen = true;
+            } else if (targetPresent && q->state() == State::Lost) {
+                q->m_reconnects++;
+            }
+            if (!targetPresent && targetSeen) {
+                q->setState(State::Lost, "The selected device was disconnected");
+                q->m_linkedStreams = 0;
+                return;
+            }
+        } else if (isApp() && hadSources && sources.empty()) {
+            q->m_reconnects++;  // the app closed its audio; its next stream relinks
+        }
+        updateState();
+    }
+
+    void updateState()
+    {
+        if (q->state() == State::Failed)
+            return;
+        std::set<uint32_t> linkedNodes;
+        std::map<uint32_t, uint32_t> portNode;
+        for (const auto &p : graph().ports())
+            portNode[p.id] = p.nodeId;
+        for (const auto &l : links) {
+            auto it = portNode.find(l.first.first);
+            if (it != portNode.end())
+                linkedNodes.insert(it->second);
+        }
+        q->m_linkedStreams = int(linkedNodes.size());
+        if (!linkedNodes.empty())
+            q->setState(State::Active, {});
+        else if (isApp())
+            q->setState(State::Waiting, "Waiting for the application to play audio");
+        else
+            q->setState(State::Waiting, "Waiting for the audio device");
     }
 
     void onGraphEvent(const GraphEvent &e)
     {
         if (stopping)
             return;
-        if (isApp()) {
-            switch (e.type) {
-            case GraphEvent::NodeAdded:
-            case GraphEvent::NodeChanged: {
-                NodeInfo n;
-                // A stream of the chosen application: the first one, or a new
-                // one after the call or tab reconnected.
-                if (graph().node(e.id, &n) && matchesApp(n) && !appNodes.count(e.id)) {
-                    appNodes.insert(e.id);
-                    relinkAll();
-                }
-                break;
-            }
-            case GraphEvent::NodeRemoved:
-                if (appNodes.erase(e.id)) {
-                    if (appNodes.empty())
-                        q->m_reconnects++;  // counted as a gap; the next stream relinks
-                    updateLinkedCount();
-                }
-                break;
-            case GraphEvent::PortAdded: {
-                const auto ports = graph().ports();
-                for (const auto &p : ports) {
-                    if (p.id != e.id)
-                        continue;
-                    if (p.nodeId == ourNode || (p.output && appNodes.count(p.nodeId)))
-                        relinkAll();
-                }
-                break;
-            }
-            case GraphEvent::PortRemoved:
-                for (auto it = links.begin(); it != links.end();) {
-                    if (it->first.first == e.id || it->first.second == e.id) {
-                        pw_proxy_destroy(it->second);
-                        it = links.erase(it);
-                    } else {
-                        ++it;
-                    }
-                }
-                updateLinkedCount();
-                break;
-            default:
-                break;
-            }
-            return;
-        }
-
-        // Devices.
-        const Kind kind = config().kind;
-        const bool explicitDevice = kind == Kind::OutputDevice || kind == Kind::InputDevice;
-        if (e.type == GraphEvent::NodeRemoved && explicitDevice && e.id == targetNode) {
-            targetNode = SPA_ID_INVALID;
-            destroyStream();
-            q->setState(State::Lost, "The selected device was disconnected");
-            return;
-        }
-        if (e.type == GraphEvent::NodeAdded || e.type == GraphEvent::NodeChanged ||
-            e.type == GraphEvent::DefaultsChanged) {
-            NodeInfo n;
-            if (explicitDevice && e.type != GraphEvent::DefaultsChanged && graph().node(e.id, &n) &&
-                n.name == config().target) {
-                targetNode = e.id;
-                if (!stream && q->state() == State::Lost) {
-                    std::string err;
-                    if (createStream(&err)) {
-                        q->m_reconnects++;
-                        q->setState(State::Waiting, "Device reconnected");
-                    }
-                }
-            } else if (!explicitDevice && q->state() == State::Lost) {
-                destroyStream();
-                std::string err;
-                if (createStream(&err)) {
-                    q->m_reconnects++;
-                    q->setState(State::Waiting, "Reconnected to the default device");
+        switch (e.type) {
+        case GraphEvent::NodeAdded:
+        case GraphEvent::NodeChanged:
+        case GraphEvent::NodeRemoved:
+        case GraphEvent::DefaultsChanged:
+            recompute();
+            break;
+        case GraphEvent::PortAdded:
+            relinkAll();
+            updateState();
+            break;
+        case GraphEvent::PortRemoved:
+            for (auto it = links.begin(); it != links.end();) {
+                if (it->first.first == e.id || it->first.second == e.id) {
+                    pw_proxy_destroy(it->second);
+                    it = links.erase(it);
+                } else {
+                    ++it;
                 }
             }
+            if (q->state() != State::Lost)
+                updateState();
+            break;
+        default:
+            break;
         }
     }
 };
@@ -379,30 +396,25 @@ bool CaptureStream::start(std::string *error)
     }
     PipeWireGraph::Lock lock(m_graph);
     d->stopping = false;
-    const Kind kind = m_config.kind;
-    if (kind == Kind::OutputDevice || kind == Kind::InputDevice) {
+    d->targetSeen = false;
+    d->sources.clear();
+    if (d->explicitDevice()) {
+        bool present = false;
         for (const auto &n : m_graph.nodes())
-            if (n.name == m_config.target)
-                d->targetNode = n.id;
-        if (d->targetNode == SPA_ID_INVALID) {
+            present |= d->matches(n, {});
+        if (!present) {
             if (error)
                 *error = "The selected audio device is not available";
             return false;
         }
     }
-    if (kind == Kind::Application) {
-        if (m_config.target.empty()) {
-            if (error)
-                *error = "No application selected";
-            return false;
-        }
-        for (const auto &n : m_graph.nodes())
-            if (d->matchesApp(n))
-                d->appNodes.insert(n.id);
+    if (m_config.kind == Kind::Application && m_config.target.empty()) {
+        if (error)
+            *error = "No application selected";
+        return false;
     }
     d->graphListener = m_graph.addListener([this](const GraphEvent &e) { d->onGraphEvent(e); });
-    setState(State::Waiting, kind == Kind::Application ? "Waiting for the application to play audio"
-                                                       : "Connecting");
+    setState(State::Waiting, "Connecting");
     if (!d->createStream(error)) {
         m_graph.removeListener(d->graphListener);
         d->graphListener = 0;
@@ -423,7 +435,7 @@ void CaptureStream::stop()
         d->graphListener = 0;
     }
     d->destroyStream();
-    d->appNodes.clear();
+    d->sources.clear();
     m_state = State::Idle;
 }
 
