@@ -377,6 +377,10 @@ std::vector<std::pair<size_t, size_t>> speechWindows(whisper_vad_context *vad, c
         if (!regions.empty() && t0 - regions.back().second < joinGap &&
             t1 - regions.back().first <= maxWindow)
             regions.back().second = t1;
+        else if (!regions.empty() && t0 < regions.back().second)
+            // Split for length: start where the previous window ended, so no
+            // audio (and no sentence) is transcribed twice.
+            regions.push_back({regions.back().second, t1});
         else
             regions.push_back({t0, t1});
     }
@@ -615,6 +619,10 @@ int main(int argc, char **argv)
     });
     const int echoes = removeEcho(segments);
     mergeFragments(segments);
+    // Safety net: the recogniser occasionally repeats a sentence verbatim.
+    segments.erase(std::unique(segments.begin(), segments.end(), [](const Segment &a, const Segment &b) {
+        return a.source == b.source && a.text == b.text && b.start - a.start < 3.0;
+    }), segments.end());
 
     QString mainLanguage;
     int best = -1;

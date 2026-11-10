@@ -57,9 +57,10 @@ cd "$BUILD"
 # The engines' private libraries (ggml, whisper, llama) sit next to them with
 # RPATH $ORIGIN; listing the engines lets linuxdeploy bundle their system deps.
 ENGINES=""
-for e in AppDir/usr/lib*/afterline/*/afterline-*; do
+for e in $(find AppDir/usr -type f -path '*/afterline/*/afterline-*'); do
     ENGINES="$ENGINES --executable $e"
 done
+[ -n "$ENGINES" ] || { echo "engines missing from AppDir" >&2; exit 1; }
 # shellcheck disable=SC2086
 "linuxdeploy-$ARCH.AppImage" --appdir AppDir $ENGINES \
     --desktop-file AppDir/usr/share/applications/io.github.AfterLine.desktop \
