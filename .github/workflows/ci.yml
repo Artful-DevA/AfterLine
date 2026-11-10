@@ -64,7 +64,8 @@ jobs:
       - name: Transcribe, offline
         run: |
           ./wav2opus eng/_deps/whisper-src/samples/jfk.wav jfk.opus 2
-          unshare -rn ./eng/stage/afterline-transcriber --model models/ggml-base-q5_1.bin \
+          # No network at all: proves transcription is fully offline.
+          sudo unshare --net -- sudo -u "$USER" ./eng/stage/afterline-transcriber --model models/ggml-base-q5_1.bin \
             --vad models/ggml-silero-v6.2.0.bin --language en --track computer=jfk.opus --output jfk.json
           python3 - <<'PY'
           import json
