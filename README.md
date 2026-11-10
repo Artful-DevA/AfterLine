@@ -94,6 +94,9 @@ before use. Without internet, import the files in *Settings → AI models*.
 - 8 GB of memory for transcription; 16 GB recommended to also write notes with
   the recommended model (a lighter notes model is offered for 8 GB machines).
 - No GPU needed.
+- The AppImage uses the system's OpenGL and audio libraries, like every
+  AppImage; desktop installations always have them (`libopengl0`/`libglvnd`,
+  `libpipewire-0.3`).
 
 ## Where things are
 

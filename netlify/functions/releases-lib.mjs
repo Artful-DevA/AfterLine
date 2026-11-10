@@ -14,7 +14,7 @@ export const TARGETS = {
   'debian-12': { label: 'Debian 12', match: (n) => /_debian-12_amd64\.deb$/.test(n) },
   'fedora-44': { label: 'Fedora 44', match: (n) => /-fedora-44\.x86_64\.rpm$/.test(n) },
   'fedora-43': { label: 'Fedora 43', match: (n) => /-fedora-43\.x86_64\.rpm$/.test(n) },
-  'arch': { label: 'Arch Linux', match: (n) => /-x86_64\.pkg\.tar\.zst$/.test(n) },
+  'arch': { label: 'Arch Linux', match: (n) => /^afterline-\d[^/]*-x86_64\.pkg\.tar\.zst$/.test(n) },
   'appimage': { label: 'AppImage', match: (n) => /-x86_64\.AppImage$/.test(n) },
   'checksums': { label: 'SHA256SUMS', match: (n) => n === 'SHA256SUMS' },
 };
