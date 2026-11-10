@@ -319,20 +319,21 @@ void RecordingController::event(const QString &type, const QString &message)
 void RecordingController::watchTrack(const audio::TrackStatus &now, audio::TrackStatus &before, bool microphone)
 {
     using S = CaptureStream::State;
-    const QString name = microphone ? tr("microphone") : now.label.isEmpty() ? tr("computer audio") : QString(now.label);
+    const QString label = QString::fromStdString(now.label);
+    const QString name = microphone ? tr("microphone") : label.isEmpty() ? tr("computer audio") : label;
     if (now.state == S::Lost && before.state != S::Lost) {
         if (microphone) {
             event("source-lost", tr("Microphone disconnected"));
             Q_EMIT warning(tr("Microphone disconnected"),
                            tr("AfterLine can no longer hear “%1”. The meeting is still being recorded; your "
                               "microphone will be picked up again as soon as it is reconnected.")
-                               .arg(now.label));
+                               .arg(label));
         } else {
-            event("source-lost", tr("Audio source disconnected: %1").arg(now.label));
+            event("source-lost", tr("Audio source disconnected: %1").arg(label));
             Q_EMIT warning(tr("Audio source disconnected"),
                            tr("AfterLine can no longer capture audio from %1. Reconnect it, or stop and start a "
                               "new recording from another source or the entire computer.")
-                               .arg(now.label));
+                               .arg(label));
         }
     }
     if (before.state == S::Lost && now.state != S::Lost) {
@@ -340,7 +341,7 @@ void RecordingController::watchTrack(const audio::TrackStatus &now, audio::Track
         Q_EMIT warningCleared();
     }
     if (!microphone && now.reconnects > before.reconnects && now.linkedStreams > 0 && before.state != S::Lost)
-        event("stream-restarted", tr("%1 restarted its audio; recording continued").arg(now.label));
+        event("stream-restarted", tr("%1 restarted its audio; recording continued").arg(label));
     if (now.writeFailed && !before.writeFailed) {
         event("write-error", QString::fromStdString(now.writeError));
         Q_EMIT warning(tr("Recording could not be written"),
@@ -370,7 +371,7 @@ void RecordingController::poll()
             Q_EMIT warning(tr("No sound from the microphone"),
                            tr("AfterLine is not receiving anything from “%1”. Check that it is not muted and "
                               "that it is the microphone you use for the call.")
-                               .arg(st.microphone.label));
+                               .arg(QString::fromStdString(st.microphone.label)));
         } else if (!silent && m_micSilentWarned) {
             m_micSilentWarned = false;
             Q_EMIT warningCleared();

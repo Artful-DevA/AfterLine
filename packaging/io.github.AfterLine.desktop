@@ -1,0 +1,18 @@
+[Desktop Entry]
+Type=Application
+Name=AfterLine
+GenericName=Meeting Recorder
+Comment=Record meetings and get private, offline transcripts and notes
+Exec=afterline
+Icon=io.github.AfterLine
+Terminal=false
+Categories=AudioVideo;Audio;Recorder;Office;
+Keywords=meeting;recorder;transcript;transcription;notes;minutes;zoom;teams;meet;whisper;offline;
+StartupNotify=true
+StartupWMClass=AfterLine
+SingleMainWindow=true
+Actions=NewRecording;
+
+[Desktop Action NewRecording]
+Name=New recording
+Exec=afterline

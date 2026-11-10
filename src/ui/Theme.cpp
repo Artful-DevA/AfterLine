@@ -135,7 +135,7 @@ QPushButton:focus, QToolButton:focus { border: 1px solid @accent; }
 QPushButton:disabled, QToolButton:disabled { color: @muted; background: @surfaceAlt; }
 QToolButton[flat="true"], QPushButton[flat="true"] { border: 0; background: transparent; padding: 6px; }
 QToolButton[flat="true"]:hover, QPushButton[flat="true"]:hover { background: @hoverBg; }
-QToolButton::menu-indicator { image: none; width: 0; }
+QToolButton::menu-indicator, QPushButton::menu-indicator { image: none; width: 0; }
 #Primary { background: @accent; color: @onAccent; border: 0; font-weight: 600; padding: 9px 18px; }
 #Primary:hover { background: @accentHover; }
 #Primary:disabled { background: @border; color: @muted; }

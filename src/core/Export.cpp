@@ -51,7 +51,7 @@ QString exportMeeting(const ExportInput &in, ExportFormat format)
     switch (format) {
     case ExportFormat::Markdown: {
         QString md = "# " + in.title + "\n\n";
-        md += QLocale().toString(in.date, QLocale::LongFormat) + " · " + formatDuration(in.duration) + "\n\n";
+        md += QLocale().toString(in.date, "dddd, d MMMM yyyy, HH:mm") + " · " + formatDuration(in.duration) + "\n\n";
         if (!in.notesMarkdown.isEmpty())
             md += in.notesMarkdown + "\n";
         if (!in.transcript.isEmpty()) {
@@ -62,7 +62,7 @@ QString exportMeeting(const ExportInput &in, ExportFormat format)
         return md;
     }
     case ExportFormat::PlainText: {
-        QString txt = in.title + "\n" + QLocale().toString(in.date, QLocale::LongFormat) + "\n\n";
+        QString txt = in.title + "\n" + QLocale().toString(in.date, "dddd, d MMMM yyyy, HH:mm") + "\n\n";
         if (!in.notesMarkdown.isEmpty())
             txt += in.notesMarkdown + "\n";
         return txt + transcriptToText(in.transcript);

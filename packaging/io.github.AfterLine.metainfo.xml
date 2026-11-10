@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.AfterLine</id>
+  <name>AfterLine</name>
+  <summary>Private, offline meeting recorder with transcripts and notes</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <developer id="io.github.artful-deva">
+    <name>Artful-DevA</name>
+  </developer>
+  <description>
+    <p>
+      AfterLine records your meetings from the whole computer or from a single
+      application such as Firefox, Chrome, Zoom, Teams or Discord, with or
+      without your microphone, then writes a timestamped transcript and clear
+      meeting notes: a summary, decisions, action items and dates.
+    </p>
+    <p>
+      Everything happens on your computer. There is no account, no cloud
+      service and no telemetry. Recordings are saved continuously, so a crash
+      or power cut never costs you the meeting.
+    </p>
+  </description>
+  <launchable type="desktop-id">io.github.AfterLine.desktop</launchable>
+  <url type="homepage">https://afterline-linux.netlify.app</url>
+  <url type="bugtracker">https://github.com/Artful-DevA/AfterLine/issues</url>
+  <url type="vcs-browser">https://github.com/Artful-DevA/AfterLine</url>
+  <categories>
+    <category>AudioVideo</category>
+    <category>Office</category>
+  </categories>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="0.2.0" date="2026-11-10">
+      <description>
+        <p>Rewritten as a native application: per-application recording,
+        offline transcription and notes, meeting library and search.</p>
+      </description>
+    </release>
+  </releases>
+</component>

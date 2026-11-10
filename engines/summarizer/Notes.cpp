@@ -192,7 +192,9 @@ QString extractionSystemPrompt(const QString &languageCode)
         "if one is stated, otherwise \"\".\n"
         "- open_questions: questions raised and not answered in this part.\n"
         "- dates: dates, days or deadlines explicitly mentioned.\n"
-        "- \"You\" is the person who recorded the meeting; \"Meeting\" is everyone else on the call.\n"
+        "- \"You\" is the person who recorded the meeting; \"Meeting\" is everyone else on the call. Refer to "
+        "the person who recorded as \"you\" and never guess names for speakers; use a name only when someone "
+        "is addressed or mentioned by it.\n"
         "- The transcript comes from speech recognition and may contain errors; do not repeat obvious mistakes.\n"
         "- Write everything in %1. Be concise.")
         .arg(languageName(languageCode));

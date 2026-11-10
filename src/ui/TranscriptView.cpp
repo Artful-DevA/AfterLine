@@ -238,7 +238,8 @@ TranscriptView::TranscriptView(QWidget *parent) : QWidget(parent)
     m_findCount = label({}, "Muted");
     bar->addWidget(m_findCount);
     bar->addStretch();
-    m_info = label(tr("Double-click a line to correct it. Click a time to play from there."), "Muted");
+    m_info = label(tr("Click a time to play · double-click to correct"), "Muted");
+    m_info->setWordWrap(false);
     bar->addWidget(m_info);
     v->addLayout(bar);
 
