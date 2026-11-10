@@ -29,13 +29,34 @@ QSet<QString> words(const QString &text)
     return out;
 }
 
-// Words that carry meaning (drops short function words in any language).
+// Crude stemming so "needing"/"needed"/"needs" compare equal.
+QString stem(QString w)
+{
+    for (const char *suffix : {"ing", "ed", "es", "s"}) {
+        const int n = int(qstrlen(suffix));
+        if (w.size() > n + 3 && w.endsWith(QLatin1String(suffix))) {
+            w.chop(n);
+            break;
+        }
+    }
+    return w;
+}
+
+const QSet<QString> &fillerWords()
+{
+    static const QSet<QString> f = {"the", "and", "for", "about", "whether", "yet", "will", "that", "this",
+                                    "with", "only", "open", "question", "agreed", "agree", "decided", "nobody",
+                                    "knows", "know", "need", "needs", "there", "are", "was", "were"};
+    return f;
+}
+
+// Words that carry meaning (drops short and filler words), stemmed.
 QSet<QString> significant(const QString &text)
 {
     QSet<QString> out;
     for (const QString &w : words(text))
-        if (w.size() >= 3 || w.at(0).isDigit())
-            out.insert(w);
+        if ((w.size() >= 3 || w.at(0).isDigit()) && !fillerWords().contains(w) && !fillerWords().contains(stem(w)))
+            out.insert(stem(w));
     return out;
 }
 
@@ -344,7 +365,7 @@ QJsonObject mergeSections(const std::vector<QJsonObject> &sections)
                 bool duplicate = false;
                 for (int i = 0; i < merged.size(); ++i) {
                     QJsonObject m = merged[i].toObject();
-                    if (overlap(itemText(m), itemText(item)) >= 0.75) {
+                    if (overlap(itemText(m), itemText(item)) >= 0.6) {
                         QJsonArray src = m["sources"].toArray();
                         for (const auto x : item["sources"].toArray())
                             if (!src.contains(x))
@@ -364,6 +385,18 @@ QJsonObject mergeSections(const std::vector<QJsonObject> &sections)
         }
         out[key] = merged;
     }
+    // A key point that only restates a decision, task or question is noise.
+    QJsonArray points;
+    for (const auto v : out["key_points"].toArray()) {
+        const QString text = itemText(v.toObject());
+        bool repeat = false;
+        for (const char *key : {"decisions", "action_items", "open_questions"})
+            for (const auto o : out[key].toArray())
+                repeat |= overlap(text, itemText(o.toObject())) >= 0.8;
+        if (!repeat)
+            points.append(v);
+    }
+    out["key_points"] = points;
     return out;
 }
 

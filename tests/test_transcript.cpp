@@ -177,6 +177,34 @@ private Q_SLOTS:
         QCOMPARE(m["section_summaries"].toArray().size(), 2);
     }
 
+    void mergesRephrasedItemsFromALongMeeting()
+    {
+        // Real output for one meeting split in two sections (see the release checklist).
+        auto pts = [](std::initializer_list<const char *> texts, int src) {
+            QJsonArray a;
+            for (const char *t : texts)
+                a.append(QJsonObject{{"text", t}, {"sources", QJsonArray{src}}});
+            return a;
+        };
+        const QJsonObject a{{"key_points", pts({"Keep the existing navigation and only improve the mobile layout",
+                                               "Nobody knows yet about needing a dark mode",
+                                               "Open question: Whether we need a dark mode for the launch"}, 1)},
+                            {"open_questions", pts({"Whether we need a dark mode for the launch"}, 2)}};
+        const QJsonObject b{{"key_points", pts({"Agreed on keeping existing navigation and improving mobile layout",
+                                               "Nobody knows yet whether a dark mode is needed",
+                                               "Maria will prepare the release documentation by Friday"}, 40)}};
+        const QJsonObject m = notes::mergeSections({a, b});
+        const QJsonArray kp = m["key_points"].toArray();
+        QStringList texts;
+        for (const auto v : kp)
+            texts << v.toObject()["text"].toString();
+        QCOMPARE(kp.size(), 2);  // navigation, documentation (dark mode is the open question)
+        QVERIFY(texts[0].startsWith("Keep the existing navigation"));
+        QCOMPARE(kp[0].toObject()["sources"].toArray(), (QJsonArray{1, 40}));
+        QVERIFY(texts[1].startsWith("Maria"));
+        QCOMPARE(m["open_questions"].toArray().size(), 1);
+    }
+
     void chunksLongMeetingsWithinBudget()
     {
         std::vector<notes::Line> many;
