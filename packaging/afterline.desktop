@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=AfterLine
+Comment=Conversations, kept.
+Exec=afterline
+Icon=afterline
+Categories=AudioVideo;Audio;Utility;
+Terminal=false
+StartupNotify=true
