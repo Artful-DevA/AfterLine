@@ -1,36 +1,202 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#f7f3ec"><meta name="description" content="AfterLine. Private Linux meeting recorder, transcript and notes, right on your computer.">
-<title>AfterLine | Conversations, kept.</title><link rel="icon" href="icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="style.css"></head>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#f7f3ec">
+<meta name="description" content="AfterLine records your meetings on Linux and writes a full transcript and clear notes, entirely on your computer. No account, no cloud.">
+<title>AfterLine · Conversations, kept.</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Serif+Display:ital@0;1&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
 <body>
-<header class="nav wrap"><a class="brand" href="#top"><span class="mark">a<span>.</span></span> afterline</a><nav><a href="#features">Features</a><a href="#how">How it works</a><a href="#downloads">Download</a><a href="https://github.com/Artful-DevA/AfterLine" target="_blank" rel="noopener">GitHub ↗</a></nav></header>
+<header class="nav wrap">
+  <a class="brand" href="#top"><img src="icon.svg" alt="" width="34" height="34"> AfterLine</a>
+  <nav aria-label="Main">
+    <a href="#features">Features</a>
+    <a href="#privacy">Privacy</a>
+    <a href="#download">Download</a>
+    <a href="https://github.com/Artful-DevA/AfterLine">GitHub</a>
+  </nav>
+</header>
+
 <main id="top">
-<section class="hero wrap"><div class="eyebrow"><span class="dot"></span> FOR LINUX. BUILT FOR PRIVACY.</div>
-<h1>Conversations,<br><em>kept.</em></h1>
-<p class="lead">Stay in the conversation. AfterLine saves the audio, creates a full transcript, and turns a meeting into useful notes, all on your own computer.</p>
-<div class="hero-buttons"><a class="button primary" href="#downloads">Download for Linux <span>↗</span></a><a class="button secondary" href="https://github.com/Artful-DevA/AfterLine">Explore the code ↗</a></div>
-<p class="fine">No accounts · No cloud transcription · Open source · Linux native</p>
-<div class="mockup"><div class="mock-head"><span class="mini-mark">a.</span><span>AfterLine</span><span class="mock-private">● PRIVATE BY DESIGN</span></div>
-<div class="mock-toolbar"><span class="chip">Whole computer audio ⌄</span><span class="chip">☐ Include microphone</span><span class="chip red">● Start recording</span></div>
-<div class="mock-body"><aside><span class="aside-title">RECORDINGS</span><div class="meeting selected">◷ &nbsp; Weekly review<br><small>Today · 38 minutes</small></div><div class="meeting">◷ &nbsp; Project sync<br><small>Yesterday · 24 minutes</small></div><div class="meeting">◷ &nbsp; Lecture notes<br><small>Monday · 62 minutes</small></div></aside><article><div class="mock-tabs"><strong>Meeting notes</strong><span>Full transcript</span></div><h3>Weekly review</h3><small class="muted">Example interface, illustrative content</small><h4>Summary</h4><p>The team reviewed project progress and discussed next steps for the upcoming release.</p><h4>Action items</h4><p>✓ &nbsp; Confirm release checklist</p><p>○ &nbsp; Schedule final testing session</p></article></div></div>
-</section>
-<section id="features" class="features"><div class="wrap"><div class="eyebrow">THE IMPORTANT THINGS</div><h2>Everything you need.<br><em>Nothing in the way.</em></h2><div class="grid">
-<div class="feature"><span class="num">01 /</span><h3>Record what matters</h3><p>Choose computer audio or a currently active application's playback stream. Include your microphone only when you want to.</p></div>
-<div class="feature"><span class="num">02 /</span><h3>Keep every word</h3><p>Multilingual transcription with timestamps. Saved locally and available when you need it.</p></div>
-<div class="feature"><span class="num">03 /</span><h3>Clear meeting notes</h3><p>Generate summaries and action items with an optional local AI model, without uploading conversations.</p></div>
-<div class="feature"><span class="num">04 /</span><h3>Made for Linux</h3><p>A native desktop experience with planned packages for Ubuntu, Mint, Debian, Fedora, Arch and AppImage.</p></div>
-</div></div></section>
-<section id="how" class="how wrap"><div><div class="eyebrow">A BETTER WAY TO REMEMBER</div><h2>Listen first.<br><em>Read later.</em></h2></div><div class="steps"><p><b>01</b> &nbsp; Choose your audio source and start recording.</p><p><b>02</b> &nbsp; Stop when the meeting ends. Keep the original audio.</p><p><b>03</b> &nbsp; Transcribe locally and generate notes when you're ready.</p></div></section>
-<section id="downloads" class="downloads"><div class="wrap"><div class="eyebrow">GET AFTERLINE</div><h2>Your computer.<br><em>Your conversations.</em></h2><p>Download the package for your Linux distribution. Install normally. Processing stays on your machine after initial setup.</p>
-<div id="release-status" class="release-status" aria-live="polite">Checking available releases…</div>
-<div class="download-grid">
-<a class="download" data-format="deb" href="https://github.com/Artful-DevA/AfterLine/releases"><span>Ubuntu · Mint · Debian</span><strong>Download .deb <span>↗</span></strong></a>
-<a class="download" data-format="rpm" href="https://github.com/Artful-DevA/AfterLine/releases"><span>Fedora</span><strong>Download .rpm <span>↗</span></strong></a>
-<a class="download" data-format="arch" href="https://github.com/Artful-DevA/AfterLine/releases"><span>Arch · EndeavourOS · Manjaro</span><strong>Download Arch package <span>↗</span></strong></a>
-<a class="download" data-format="appimage" href="https://github.com/Artful-DevA/AfterLine/releases"><span>Other Linux distributions</span><strong>Download AppImage <span>↗</span></strong></a></div>
-<p class="fine">Development preview. Packages appear here only after successful builds and published releases. Test audio capture before relying on it for an important meeting.</p></div></section>
+  <section class="hero wrap">
+    <p class="eyebrow">Meeting notes for Linux · private by design</p>
+    <h1>Conversations, <em>kept.</em></h1>
+    <p class="lead">AfterLine records your meetings from Zoom, Teams, Meet in your browser, Discord or any other app,
+      then writes a full transcript and clear notes, all on your own computer.</p>
+    <div class="actions">
+      <a class="button primary" href="#download">Download for Linux</a>
+      <a class="button secondary" href="https://github.com/Artful-DevA/AfterLine">View the source</a>
+    </div>
+    <p class="fine">Free and open source · No account · No cloud · Works offline</p>
+    <figure class="shot">
+      <img src="screenshots/notes.png" width="1200" height="780"
+           alt="AfterLine showing meeting notes with a summary, decisions and action items, each linked to a time in the recording">
+      <figcaption>The real application. Notes written on the computer from a recorded meeting; every item links to the moment it was said.</figcaption>
+    </figure>
+  </section>
+
+  <section id="features" class="features">
+    <div class="wrap">
+      <p class="eyebrow">What it does</p>
+      <h2>Listen first. <em>Read later.</em></h2>
+      <div class="grid">
+        <article>
+          <h3>Record just the meeting</h3>
+          <p>Choose the whole computer or a single application. Pick Firefox and only Firefox is recorded, even when the call
+            reconnects. Music playing elsewhere stays out.</p>
+        </article>
+        <article>
+          <h3>Your voice on its own track</h3>
+          <p>Include your microphone, or don't. It is recorded separately, so the transcript knows which words were yours, and
+            echo from your speakers is filtered out.</p>
+        </article>
+        <article>
+          <h3>A transcript you can trust</h3>
+          <p>Timestamped, searchable, and correctable. Click any line to hear that moment. English, Romanian and 97 more
+            languages, transcribed offline with Whisper.</p>
+        </article>
+        <article>
+          <h3>Notes that show their work</h3>
+          <p>A summary, decisions, action items with owners and deadlines, open questions and dates. Each item links to its
+            source, and anything the transcript does not support is left out.</p>
+        </article>
+        <article>
+          <h3>Ask your meetings</h3>
+          <p>“What did we decide about the website?” AfterLine answers from your transcripts, with links to where it was said,
+            and tells you when your meetings don't cover something.</p>
+        </article>
+        <article>
+          <h3>Nothing is ever lost</h3>
+          <p>Audio is written to disk continuously. A crash, a power cut or an unplugged headset never costs you the meeting;
+            AfterLine recovers what was recorded.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="gallery wrap" aria-label="Screenshots">
+    <figure><img src="screenshots/recording.png" width="1200" height="780" loading="lazy" alt="Recording a Zoom call with the microphone, showing the timer and level meters"><figcaption>Recording a call</figcaption></figure>
+    <figure><img src="screenshots/transcript.png" width="1200" height="780" loading="lazy" alt="A timestamped transcript separating your words from the meeting's"><figcaption>The transcript</figcaption></figure>
+    <figure><img src="screenshots/dark.png" width="1200" height="780" loading="lazy" alt="AfterLine in dark mode"><figcaption>Dark mode</figcaption></figure>
+  </section>
+
+  <section id="privacy" class="privacy">
+    <div class="wrap two">
+      <div>
+        <p class="eyebrow">Privacy</p>
+        <h2>Your computer. <em>Your conversations.</em></h2>
+      </div>
+      <div class="facts">
+        <p><strong>Everything runs locally.</strong> Recording, transcription (whisper.cpp) and notes (llama.cpp) run on your
+          computer. Meetings are never uploaded.</p>
+        <p><strong>No account, no telemetry.</strong> AfterLine does not phone home. The only network access is downloading the
+          AI models, once, when you ask, from Hugging Face; each file is checked against a published checksum.</p>
+        <p><strong>Your files, in plain folders.</strong> Meetings live in <code>~/.local/share/AfterLine/meetings</code> as
+          Ogg Opus audio, JSON and Markdown. Delete a meeting and it goes to your trash.</p>
+        <p><strong>Check it yourself.</strong> After setup, turn off Wi‑Fi: recording, transcription, notes and search all keep
+          working. The source code is open for anyone to audit.</p>
+        <p class="muted">Recordings are not encrypted by AfterLine; use your system's disk encryption on shared or portable
+          computers. You are responsible for getting consent to record where the law requires it.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="download" class="download">
+    <div class="wrap">
+      <p class="eyebrow">Download</p>
+      <h2>Install it <em>like any other app.</em></h2>
+      <p class="lead left">Pick your Linux distribution and open the downloaded file with your software installer. On first launch,
+        AfterLine helps you download its offline speech model (190 MB) and, optionally, its notes model (2.5 GB).</p>
+      <div id="release-status" class="status" role="status" aria-live="polite">Checking the latest release…</div>
+      <div class="distros">
+        <div class="distro">
+          <h3>Ubuntu</h3>
+          <p>Also Pop!_OS and Zorin OS</p>
+          <a class="dl" data-target="ubuntu-26.04" href="/download/ubuntu-26.04">Ubuntu 26.04 <span>.deb</span></a>
+          <a class="dl" data-target="ubuntu-24.04" href="/download/ubuntu-24.04">Ubuntu 24.04 <span>.deb</span></a>
+          <a class="dl" data-target="ubuntu-22.04" href="/download/ubuntu-22.04">Ubuntu 22.04 <span>.deb</span></a>
+        </div>
+        <div class="distro">
+          <h3>Linux Mint</h3>
+          <p>Built on Ubuntu</p>
+          <a class="dl" data-target="ubuntu-24.04" href="/download/ubuntu-24.04">Mint 22 <span>.deb</span></a>
+          <a class="dl" data-target="ubuntu-22.04" href="/download/ubuntu-22.04">Mint 21 <span>.deb</span></a>
+        </div>
+        <div class="distro">
+          <h3>Debian</h3>
+          <p>&nbsp;</p>
+          <a class="dl" data-target="debian-13" href="/download/debian-13">Debian 13 <span>.deb</span></a>
+          <a class="dl" data-target="debian-12" href="/download/debian-12">Debian 12 <span>.deb</span></a>
+        </div>
+        <div class="distro">
+          <h3>Fedora</h3>
+          <p>&nbsp;</p>
+          <a class="dl" data-target="fedora-44" href="/download/fedora-44">Fedora 44 <span>.rpm</span></a>
+          <a class="dl" data-target="fedora-43" href="/download/fedora-43">Fedora 43 <span>.rpm</span></a>
+        </div>
+        <div class="distro">
+          <h3>Arch Linux</h3>
+          <p>Also EndeavourOS and Manjaro</p>
+          <a class="dl" data-target="arch" href="/download/arch">Arch package <span>.pkg.tar.zst</span></a>
+        </div>
+        <div class="distro">
+          <h3>Other distributions</h3>
+          <p>Any recent Linux with PipeWire</p>
+          <a class="dl" data-target="appimage" href="/download/appimage">AppImage <span>portable</span></a>
+        </div>
+      </div>
+      <p class="fine left">x86-64 · Needs PipeWire (standard on current distributions) · 8 GB of memory, 16 GB recommended for
+        notes · <a data-target="checksums" href="/download/checksums">SHA-256 checksums</a> ·
+        <a href="https://github.com/Artful-DevA/AfterLine/releases">All releases</a></p>
+
+      <details id="pipewire" class="help">
+        <summary>Ubuntu 22.04 and Linux Mint 21</summary>
+        <p>These releases play sound through PulseAudio by default, and AfterLine records through PipeWire (the default on
+          Ubuntu 22.10+, Mint 22, Fedora, Debian 12+ and Arch). To switch, run:</p>
+        <pre><code>sudo apt install pipewire-audio-client-libraries libspa-0.2-bluetooth wireplumber
+systemctl --user --now disable pulseaudio.service pulseaudio.socket
+systemctl --user mask pulseaudio
+systemctl --user --now enable pipewire pipewire-pulse wireplumber</code></pre>
+        <p>then log out and back in. AfterLine tells you if this is needed.</p>
+      </details>
+      <details class="help">
+        <summary>Computers without internet</summary>
+        <p>Download the model files on another computer and use “Import a model file” in AfterLine's settings. AfterLine
+          verifies each file before using it.</p>
+        <ul>
+          <li>Speech, balanced (recommended): <a href="https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q5_1.bin">ggml-small-q5_1.bin</a> (190 MB)</li>
+          <li>Speech, most accurate: <a href="https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin">ggml-large-v3-turbo-q5_0.bin</a> (574 MB)</li>
+          <li>Speech detection: <a href="https://huggingface.co/ggml-org/whisper-vad/resolve/main/ggml-silero-v6.2.0.bin">ggml-silero-v6.2.0.bin</a> (0.9 MB)</li>
+          <li>Notes: <a href="https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF/resolve/main/Qwen3-4B-Instruct-2507-Q4_K_M.gguf">Qwen3-4B-Instruct-2507-Q4_K_M.gguf</a> (2.5 GB)</li>
+        </ul>
+      </details>
+    </div>
+  </section>
+
+  <section class="open wrap">
+    <div>
+      <p class="eyebrow">Open source</p>
+      <h2>Built in the open.</h2>
+    </div>
+    <ul class="links">
+      <li><a href="https://github.com/Artful-DevA/AfterLine">Source code</a></li>
+      <li><a href="https://github.com/Artful-DevA/AfterLine/blob/main/LICENSE">MIT licence</a></li>
+      <li><a href="https://github.com/Artful-DevA/AfterLine/blob/main/CHANGELOG.md">Changelog</a></li>
+      <li><a href="https://github.com/Artful-DevA/AfterLine/blob/main/CONTRIBUTING.md">Contributing</a></li>
+      <li><a href="https://github.com/Artful-DevA/AfterLine/issues">Report a problem</a></li>
+    </ul>
+  </section>
 </main>
-<footer class="wrap"><span class="brand">a. afterline</span><span>Conversations, kept. &nbsp; · &nbsp; MIT licensed &nbsp; · &nbsp; <a href="https://github.com/Artful-DevA/AfterLine">Source on GitHub ↗</a></span></footer>
-<dialog id="choose-download"><div class="dialog-head"><h3>Select a package</h3><button id="close-dialog" aria-label="Close">×</button></div><div id="options"></div></dialog><script src="app.js" defer></script>
-</body></html>
+
+<footer class="wrap">
+  <span class="brand small"><img src="icon.svg" alt="" width="22" height="22"> AfterLine</span>
+  <span>Conversations, kept. · MIT licensed</span>
+</footer>
+<script src="app.js" defer></script>
+</body>
+</html>

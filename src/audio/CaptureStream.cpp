@@ -2,6 +2,7 @@
 #include "audio/CaptureStream.h"
 
 #include <pipewire/pipewire.h>
+#include "audio/PwCompat.h"
 #include <spa/param/audio/format-utils.h>
 #include <spa/pod/builder.h>
 

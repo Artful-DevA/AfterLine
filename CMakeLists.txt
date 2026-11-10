@@ -172,8 +172,8 @@ set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
 set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS_PRIVATE_DIRS
   "${CMAKE_INSTALL_PREFIX}/${AFTERLINE_ENGINE_RELDIR}/transcriber"
   "${CMAKE_INSTALL_PREFIX}/${AFTERLINE_ENGINE_RELDIR}/summarizer")
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "pipewire-bin | pipewire, libqt6svg6 | qt6-svg, qt6-qpa-plugins | libqt6gui6")
-set(CPACK_DEBIAN_PACKAGE_RECOMMENDS "wireplumber, qt6-wayland")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "pipewire, libqt6svg6, qt6-qpa-plugins")
+set(CPACK_DEBIAN_PACKAGE_RECOMMENDS "wireplumber | pipewire-media-session, qt6-wayland")
 string(REPLACE "\n" "\n " _afterline_deb_desc "${CPACK_PACKAGE_DESCRIPTION}")
 set(CPACK_DEBIAN_PACKAGE_DESCRIPTION "${CPACK_PACKAGE_DESCRIPTION_SUMMARY}\n ${_afterline_deb_desc}")
 
@@ -181,7 +181,7 @@ set(CPACK_RPM_FILE_NAME RPM-DEFAULT)
 set(CPACK_RPM_PACKAGE_LICENSE "MIT")
 set(CPACK_RPM_PACKAGE_GROUP "Applications/Multimedia")
 set(CPACK_RPM_PACKAGE_AUTOREQ ON)
-set(CPACK_RPM_PACKAGE_REQUIRES "pipewire, qt6-qtsvg")
+set(CPACK_RPM_PACKAGE_REQUIRES "pipewire, wireplumber, qt6-qtsvg")
 set(CPACK_RPM_PACKAGE_SUGGESTS "qt6-qtwayland")
 set(CPACK_RPM_PACKAGE_DESCRIPTION "${CPACK_PACKAGE_DESCRIPTION}")
 # The engines' private ggml libraries are not system libraries.

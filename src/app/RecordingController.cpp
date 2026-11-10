@@ -90,6 +90,32 @@ RecordingController::RecordingController(MeetingStore &store, QObject *parent) :
     }
     m_poll.setInterval(200);
     connect(&m_poll, &QTimer::timeout, this, &RecordingController::poll);
+    checkAudioSetup();
+    connect(this, &RecordingController::sourcesChanged, this, &RecordingController::checkAudioSetup);
+}
+
+void RecordingController::checkAudioSetup()
+{
+    if (!m_graph.running() || !m_graph.connected())
+        return;
+    bool devices = false;
+    for (const auto &n : m_graph.nodes())
+        devices |= !n.ours && (n.isSink() || n.isSource());
+    const QString pulse = tr("Your system plays sound through PulseAudio rather than PipeWire, so AfterLine cannot "
+                             "see your speakers or microphone. Ubuntu 22.10 and later, Linux Mint 22, Fedora, "
+                             "Debian 12+ and Arch use PipeWire by default; on Ubuntu 22.04 and Linux Mint 21 you can "
+                             "switch to it (see “Ubuntu 22.04 and Linux Mint 21” on the AfterLine website).");
+    if (!devices && runningProcesses().contains("pulseaudio"))
+        m_audioError = pulse;
+    else if (!devices)
+        m_audioError = tr("PipeWire is running but reports no speakers or microphones.");
+    else if (m_audioError == pulse || m_audioError.startsWith(tr("PipeWire is running but")))
+        m_audioError.clear();
+}
+
+bool RecordingController::audioAvailable() const
+{
+    return m_graph.running() && m_graph.connected() && m_audioError.isEmpty();
 }
 
 RecordingController::~RecordingController()

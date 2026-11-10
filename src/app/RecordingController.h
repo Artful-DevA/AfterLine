@@ -36,7 +36,7 @@ public:
     RecordingController(MeetingStore &store, QObject *parent = nullptr);
     ~RecordingController() override;
 
-    bool audioAvailable() const { return m_graph.running() && m_graph.connected(); }
+    bool audioAvailable() const;
     QString audioError() const { return m_audioError; }
     audio::PipeWireGraph &graph() { return m_graph; }
 
@@ -71,6 +71,7 @@ Q_SIGNALS:
 
 private:
     void poll();
+    void checkAudioSetup();
     void event(const QString &type, const QString &message);
     void watchTrack(const audio::TrackStatus &now, audio::TrackStatus &before, bool microphone);
 

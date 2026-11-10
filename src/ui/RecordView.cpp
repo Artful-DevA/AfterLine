@@ -298,8 +298,7 @@ void RecordView::reloadSources()
     m_mic->setEnabled(m_includeMic->isChecked());
     const bool ok = m_ctx.recording->audioAvailable();
     m_audioProblem->setVisible(!ok);
-    m_audioProblem->setText(tr("AfterLine cannot reach the system's audio service: %1")
-                                .arg(m_ctx.recording->audioError()));
+    m_audioProblem->setText(m_ctx.recording->audioError());
     m_start->setEnabled(ok);
     updateDetail();
     updatePreview();

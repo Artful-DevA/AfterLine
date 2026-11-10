@@ -1,7 +1,19 @@
-# AfterLine is a static site. Publish only the website folder.
+# AfterLine website: static pages in website/, plus two small Netlify
+# Functions (netlify/functions/) that turn GitHub Releases into direct
+# per-distribution downloads.
 [build]
   publish = "website"
   command = ""
 
-[build.environment]
-  NODE_VERSION = "22"
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    X-Frame-Options = "DENY"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"

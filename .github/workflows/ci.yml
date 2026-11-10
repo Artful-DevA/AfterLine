@@ -1,24 +1,94 @@
-name: Tests
+name: CI
+
 on:
   push:
-    branches: [main]
   pull_request:
   workflow_dispatch:
+
 permissions:
   contents: read
+
 jobs:
-  unit:
+  ubuntu:
+    name: Build and test (Ubuntu 24.04, sanitizers)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake ninja-build pkg-config qt6-base-dev qt6-base-dev-tools \
+            libqt6svg6-dev libgl-dev libpipewire-0.3-dev libopus-dev libogg-dev libsqlite3-dev \
+            pipewire pipewire-bin wireplumber dbus
+      - name: Configure
+        run: >
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DAFTERLINE_GGML_NATIVE=ON
+          -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer"
+          -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
+      - name: Build
+        run: cmake --build build
+      - name: Unit and storage tests
+        run: ctest --test-dir build --output-on-failure -LE pipewire
+      - name: Recording tests against a real PipeWire session
+        run: tests/run-pipewire-tests.sh ctest --test-dir build --output-on-failure -L pipewire
+      - name: Application starts
+        run: QT_QPA_PLATFORM=offscreen ./build/afterline --version
+
+  transcription:
+    name: Offline transcription of real speech
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake ninja-build pkg-config qt6-base-dev libpipewire-0.3-dev \
+            libopus-dev libogg-dev libsqlite3-dev
+      - name: Build the transcription engine
+        run: |
+          cmake -S engines/transcriber -B eng -G Ninja -DCMAKE_BUILD_TYPE=Release -DAFTERLINE_GGML_NATIVE=ON
+          cmake --build eng
+          g++ -std=c++17 -O2 -Isrc $(pkg-config --cflags opus ogg) tests/tools/wav2opus.cpp src/core/OggOpus.cpp \
+            $(pkg-config --libs opus ogg) -o wav2opus
+      - uses: actions/cache@v4
         with:
-          python-version: '3.12'
-      - name: Install test dependencies
-        run: python -m pip install pytest
-      - name: Run unit and structural tests
-        run: python -m pytest -q
-      - name: Compile source
-        run: python -m compileall -q afterline main.py
-      - name: Verify site assets
-        run: test -s website/index.html && test -s website/style.css && test -s website/app.js
+          path: models
+          key: whisper-base-q5_1-silero-v6.2.0
+      - name: Download and verify models
+        run: |
+          mkdir -p models && cd models
+          [ -f ggml-base-q5_1.bin ] || curl -fsSL -o ggml-base-q5_1.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base-q5_1.bin
+          [ -f ggml-silero-v6.2.0.bin ] || curl -fsSL -o ggml-silero-v6.2.0.bin https://huggingface.co/ggml-org/whisper-vad/resolve/main/ggml-silero-v6.2.0.bin
+          echo "422f1ae452ade6f30a004d7e5c6a43195e4433bc370bf23fac9cc591f01a8898  ggml-base-q5_1.bin" | sha256sum -c
+          echo "2aa269b785eeb53a82983a20501ddf7c1d9c48e33ab63a41391ac6c9f7fb6987  ggml-silero-v6.2.0.bin" | sha256sum -c
+      - name: Transcribe, offline
+        run: |
+          ./wav2opus eng/_deps/whisper-src/samples/jfk.wav jfk.opus 2
+          unshare -rn ./eng/stage/afterline-transcriber --model models/ggml-base-q5_1.bin \
+            --vad models/ggml-silero-v6.2.0.bin --language en --track computer=jfk.opus --output jfk.json
+          python3 - <<'PY'
+          import json
+          d = json.load(open("jfk.json"))
+          text = " ".join(s["text"] for s in d["segments"]).lower()
+          print(text)
+          assert "ask not what your country can do for you" in text.replace(",", ""), text
+          assert 1.5 < d["segments"][0]["start"] < 3.0, d["segments"][0]["start"]
+          PY
+
+  fedora:
+    name: Build and test (Fedora)
+    runs-on: ubuntu-24.04
+    container: fedora:43
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: dnf install -y gcc-c++ cmake ninja-build pkgconf git qt6-qtbase-devel qt6-qtsvg-devel pipewire-devel
+          opus-devel libogg-devel sqlite-devel pipewire pipewire-utils wireplumber dbus-daemon
+      - name: Build
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DAFTERLINE_BUILD_ENGINES=OFF
+          cmake --build build
+      - name: Test
+        run: |
+          ctest --test-dir build --output-on-failure -LE pipewire
+          tests/run-pipewire-tests.sh ctest --test-dir build --output-on-failure -L pipewire

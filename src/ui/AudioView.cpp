@@ -42,6 +42,8 @@ AudioView::AudioView(QWidget *parent) : QWidget(parent)
     legend->addWidget(label(tr("Your microphone (bottom)"), "Muted"));
     legend->addStretch();
     v->addLayout(legend);
+    for (auto *l : findChildren<QLabel *>())
+        l->setWordWrap(false);
 
     auto *g = new QGridLayout;
     g->setHorizontalSpacing(14);
@@ -58,6 +60,8 @@ AudioView::AudioView(QWidget *parent) : QWidget(parent)
     }
     m_computer->setAccessibleName(tr("Meeting audio volume"));
     m_microphone->setAccessibleName(tr("Microphone volume"));
+    for (auto *l : {m_computerLabel, m_microphoneLabel})
+        l->setWordWrap(false);
     g->addWidget(m_computerLabel, 0, 0);
     g->addWidget(m_computer, 0, 1);
     g->addWidget(m_microphoneLabel, 1, 0);

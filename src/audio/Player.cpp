@@ -2,6 +2,7 @@
 #include "audio/Player.h"
 
 #include <pipewire/pipewire.h>
+#include "audio/PwCompat.h"
 #include <spa/param/audio/format-utils.h>
 #include <spa/pod/builder.h>
 
@@ -54,8 +55,10 @@ struct Player::Impl {
             return;
         }
         uint32_t frames = sd.maxsize / (2 * sizeof(float));
+#if AFTERLINE_PW_HAS_REQUESTED
         if (buf->requested)
             frames = std::min<uint32_t>(frames, uint32_t(buf->requested));
+#endif
         {
             std::lock_guard<std::mutex> lock(self->mutex);
             if (!self->q->m_playing) {

@@ -1,45 +1,47 @@
-const REPO = 'Artful-DevA/AfterLine';
-const root = 'https://github.com/' + REPO;
-const status = document.querySelector('#release-status');
-const dialog = document.querySelector('#choose-download');
-const options = document.querySelector('#options');
-document.querySelector('#close-dialog').addEventListener('click', () => dialog.close());
-const types = {
-  deb: /\.deb$/i,
-  rpm: /\.rpm$/i,
-  arch: /\.pkg\.tar\.zst$/i,
-  appimage: /\.AppImage$/i
-};
-for (const link of document.querySelectorAll('[data-format]')) {
-  link.href = root + '/releases';
-}
-fetch('https://api.github.com/repos/' + REPO + '/releases/latest', {
-  headers: {Accept: 'application/vnd.github+json'}
-}).then(async response => {
-  if (!response.ok) throw new Error('No published release');
-  return response.json();
-}).then(release => {
-  const assets = release.assets || [];
-  status.textContent = 'Latest available release: ' + release.tag_name + ' · Hosted on GitHub';
-  for (const link of document.querySelectorAll('[data-format]')) {
-    const matches = assets.filter(asset => types[link.dataset.format].test(asset.name));
-    if (matches.length === 1) {
-      link.href = matches[0].browser_download_url;
-    } else if (matches.length > 1) {
-      link.addEventListener('click', event => {
-        event.preventDefault();
-        options.replaceChildren();
-        for (const asset of matches) {
-          const choice = document.createElement('a');
-          choice.className = 'option';
-          choice.textContent = asset.name + ' ↗';
-          choice.href = asset.browser_download_url;
-          options.appendChild(choice);
-        }
-        dialog.showModal();
-      });
+// AfterLine website: mark each download as available or not, from the
+// latest GitHub Release (via /api/releases). Download links work without
+// this script; it only makes the page honest about what exists.
+(() => {
+  const status = document.getElementById('release-status');
+  const links = document.querySelectorAll('[data-target]');
+  const params = new URLSearchParams(location.search);
+  const missing = params.get('unavailable');
+
+  const markAll = (targets, available) => {
+    for (const link of links) {
+      const ok = available && targets && targets[link.dataset.target];
+      if (ok) {
+        link.classList.remove('unavailable');
+        link.removeAttribute('aria-disabled');
+        const mb = Math.round(ok.size / 1e6);
+        if (mb > 0) link.title = `${ok.name} (${mb} MB)`;
+      } else if (link.classList.contains('dl')) {
+        link.classList.add('unavailable');
+        link.setAttribute('aria-disabled', 'true');
+        link.title = 'No installer for this system has been published yet';
+        link.addEventListener('click', (e) => e.preventDefault());
+      }
     }
-  }
-}).catch(() => {
-  status.textContent = 'No public binaries released yet. Packages will appear after successful build and release checks.';
-});
+  };
+
+  fetch('/api/releases', { headers: { Accept: 'application/json' } })
+    .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+    .then((data) => {
+      if (!data.available) {
+        status.textContent = 'No release has been published yet. Installers appear here as soon as one passes its tests.';
+        markAll({}, false);
+        return;
+      }
+      const date = data.published ? new Date(data.published).toLocaleDateString() : '';
+      status.textContent = `Latest release: ${data.version}${date ? ' · ' + date : ''}`;
+      markAll(data.targets, true);
+      if (missing) {
+        status.textContent += ' · There is no installer for that system in this release yet.';
+      }
+    })
+    .catch(() => {
+      // Offline or API unavailable: the links still try the direct download.
+      status.textContent = 'Could not check the latest release right now. The download links still work.';
+      if (missing) status.textContent = 'That installer is not available at the moment.';
+    });
+})();

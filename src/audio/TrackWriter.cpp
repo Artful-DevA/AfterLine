@@ -162,6 +162,9 @@ void TrackWriter::run()
                 m_padded += n;
             }
         }
+        // The waveform overview survives a crash too (the audio already does).
+        if (m_peaks)
+            std::fflush(m_peaks);
         if (stop)
             break;
     }
