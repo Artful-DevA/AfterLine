@@ -68,6 +68,10 @@ Verified during development of 0.2.0:
 | Ubuntu 26.04 `.deb` built in a clean container with all tests, installed into a fresh 26.04 container, app and engines start, installed engine transcribes real speech correctly with runtime CPU-variant selection, clean removal | Docker, ubuntu:26.04 | pass |
 | End to end through the GUI: first-run setup with a real verified download; Zoom selected while “Spotify” plays; mic with echo; stop; automatic transcription and notes; Ask with citations; playback; dark mode | Ubuntu 24.04, Xvfb, PipeWire 1.0.5 | pass (screenshots in `website/screenshots/`) |
 | `kill -9` during recording, relaunch recovers 24 s of a 25 s recording and explains it | same | pass |
+| GitHub Actions *Packages*: build with all tests (incl. real-PipeWire recording) in clean containers | Ubuntu 22.04 / 24.04 / 26.04, Debian 12 / 13, Fedora 43 / 44, Arch, AppImage | 9/9 pass |
+| GitHub Actions *Packages*: install into a fresh container, run app and engines, uninstall | Ubuntu 22.04 / 24.04 / 26.04, Debian 12 / 13, Fedora 43 / 44 | 7/7 pass; Arch and AppImage fixed afterwards (debug package, host OpenGL in test image), see the latest run |
+| GitHub Actions *CI*: sanitizer build + tests + PipeWire recording, offline transcription of real speech with networking disabled, Fedora | ubuntu-24.04 runners | pass |
+| Long meeting: 12.5 min transcribed in 4 min 38 s (4 cores, small model), interrupted with SIGTERM and resumed, every sentence exactly once; notes in two sections merged | Ubuntu 24.04 | pass |
 | Website download routing: each target maps to its exact asset; missing installers show “not available”, never another distribution's file; GitHub outage handled | Node with mocked GitHub API | 12/12 pass |
 
 Not yet verified for 0.2.0 (required before announcing a stable release):
