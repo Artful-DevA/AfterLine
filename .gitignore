@@ -1,9 +1,7 @@
-.venv/
-.buildvenv/
-build/
-dist/
-*.spec
-__pycache__/
-.pytest_cache/
-*.pyc
-*.egg-info/
+/build*/
+/dist/
+/website/node_modules/
+/website/.netlify/
+*.user
+.cache/
+compile_commands.json
