@@ -31,7 +31,11 @@ QString sha256File(const QString &path, const std::atomic<bool> *cancel)
         const qint64 n = f.read(buf.data(), buf.size());
         if (n <= 0)
             break;
-        hash.addData(buf.constData(), int(n));  // (const char *, int): works with Qt 6.2 and later
+#if QT_VERSION >= QT_VERSION_CHECK(6, 3, 0)
+        hash.addData(QByteArrayView(buf.constData(), n));
+#else
+        hash.addData(buf.constData(), int(n));
+#endif
     }
     return QString::fromLatin1(hash.result().toHex());
 }
