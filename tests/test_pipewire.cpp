@@ -449,6 +449,29 @@ private Q_SLOTS:
         QVERIFY(seconds > 1.6 && seconds < 2.5);
     }
 
+    void destroyingAnActiveRecorderKeepsTheRecording()
+    {
+        // Quitting during a recording (or any early exit) destroys the
+        // Recorder while it runs: it must stop cleanly and leave valid files.
+        const QString dir = newDir("destroy");
+        {
+            FakeApp app("fakemeet", wav(440, 4), speakers);
+            Recorder rec(graph);
+            RecorderConfig cfg;
+            cfg.directory = dir.toStdString();
+            cfg.computer = SourceChoice{CaptureStream::Kind::Application, "bin:fakemeet", "fakemeet"};
+            cfg.microphone = SourceChoice{CaptureStream::Kind::InputDevice, mic.toStdString(), "Test mic"};
+            std::string err;
+            QVERIFY2(rec.start(cfg, &err), err.c_str());
+            wait(1.5);
+        }
+        for (const char *f : {Recorder::kComputerFile, Recorder::kMicrophoneFile}) {
+            const auto info = probeOggOpus((dir + "/" + f).toStdString());
+            QVERIFY2(info.valid && info.complete, f);
+            QVERIFY(info.seconds() > 1.0);
+        }
+    }
+
     void reportsMissingDevices()
     {
         Recorder rec(graph);
