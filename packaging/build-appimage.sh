@@ -49,7 +49,8 @@ VERSION=$(sed -n 's/^project(AfterLine VERSION \([0-9.]*\).*/\1/p' CMakeLists.tx
 export QMAKE=/usr/lib/qt6/bin/qmake
 [ -x "$QMAKE" ] || QMAKE=$(command -v qmake6)
 export EXTRA_QT_PLUGINS="svg;iconengines;imageformats"
-export EXTRA_PLATFORM_PLUGINS="libqwayland-egl.so;libqwayland-generic.so"
+# offscreen: lets "afterline --version" and checks run without a display.
+export EXTRA_PLATFORM_PLUGINS="libqwayland-egl.so;libqwayland-generic.so;libqoffscreen.so"
 export LDAI_OUTPUT="AfterLine-${VERSION}-${ARCH}.AppImage"
 export LINUXDEPLOY_OUTPUT_VERSION="$VERSION"
 
