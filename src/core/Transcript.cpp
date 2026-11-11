@@ -15,7 +15,7 @@ namespace afterline {
 QString speakerName(const QString &source)
 {
     return source == "microphone" ? QCoreApplication::translate("Transcript", "You")
-                                  : QCoreApplication::translate("Transcript", "Meeting");
+                                  : QCoreApplication::translate("Transcript", "Others");
 }
 
 QString formatTime(double seconds, bool alwaysHours)

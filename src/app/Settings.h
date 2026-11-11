@@ -44,6 +44,8 @@ public:
     void setLastMicrophone(const QString &key);
     bool setupDone() const;
     void setSetupDone(bool done);
+    QString meetingsDir() const;  // empty: the default place
+    void setMeetingsDir(const QString &dir);
     QByteArray windowGeometry() const;
     void setWindowGeometry(const QByteArray &g);
 

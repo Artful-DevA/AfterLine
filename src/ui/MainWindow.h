@@ -24,6 +24,9 @@ public:
     void showSettings();
     void showHome();
     void showTasks();
+    void recordFrom(const QString &sourceKey);  // the Record page with this source chosen
+    // "Zoom is using your microphone. Record this call?"
+    void suggestRecording(const QString &appLabel, const QString &sourceKey);
     void bringToFront();
     // True: really quit (the user confirmed or nothing is recording).
     bool confirmQuit();
@@ -47,6 +50,7 @@ private:
     MeetingView *m_meeting;
     SettingsView *m_settings;
     TasksView *m_tasks;
+    QWidget *m_callPrompt = nullptr;
     QWidget *m_previous = nullptr;
     bool m_quitting = false;
 };

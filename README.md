@@ -51,12 +51,23 @@ Website and downloads: <https://afterline-linux.netlify.app>
   dropped, and owners and deadlines are kept only if the cited lines actually
   mention them. Empty sections say so instead of being filled with invented
   content.
-- **Ask AfterLine** questions about one meeting or all of them. Answers come
-  only from your transcripts, with links to where it was said, and say so
-  plainly when your meetings don't cover something.
+- **Ask AfterLine** questions about one meeting or all of them, as a chat.
+  Answers come only from your transcripts and notes, with play buttons for
+  the moments they come from, and say so plainly when your meetings don't
+  cover something. Questions about tasks are answered straight from the
+  action items.
+- **My tasks**: every action item assigned to you, across all meetings, in
+  one list you can tick off; click a task to hear the moment it was agreed.
+- **Folders with your own icons and colours.** Drag meetings onto them, or let
+  AfterLine file new meetings for you after the notes are written (only when
+  the match is clear, with one-click undo), or suggest a new folder.
 - **Library** with search across titles, transcripts and notes (accents
-  optional: *sedinta* finds *ședința*), folders, tags, renaming, and deletion
-  to the trash.
+  optional: *sedinta* finds *ședința*), tags, renaming, and deletion to the
+  trash. Choose where recordings are saved (Settings → Where recordings are
+  saved); AfterLine moves your existing meetings there safely.
+- **Optional call reminder.** Turn on "Suggest recording when a call starts"
+  and AfterLine asks when Zoom, Teams, Slack, Discord or a browser starts
+  using the microphone. It never records on its own.
 - **Export** notes and transcript as Markdown or text, subtitles (SRT, WebVTT),
   JSON, or the audio itself.
 - **Built for laptops.** AI processing runs at low CPU and I/O priority in
@@ -105,7 +116,7 @@ before use. Without internet, import the files in *Settings → AI models*.
 
 | | |
 |---|---|
-| Meetings | `~/.local/share/AfterLine/meetings/<date>-<id>/` (audio, transcript, notes, `meeting.json`) |
+| Meetings | `~/.local/share/AfterLine/meetings/<date>-<id>/` (audio, transcript, notes, `meeting.json`), or the folder chosen in Settings; `folders.json` holds your folders |
 | Models | `~/.local/share/AfterLine/models/` |
 | Search index | `~/.local/share/AfterLine/library.sqlite` (rebuilt from the folders if lost) |
 | Settings | `~/.config/AfterLine/AfterLine.conf` |

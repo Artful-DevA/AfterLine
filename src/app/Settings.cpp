@@ -48,6 +48,15 @@ QString Settings::lastMicrophone() const { return m_s.value("recording/microphon
 void Settings::setLastMicrophone(const QString &key) { m_s.setValue("recording/microphone", key); }
 bool Settings::setupDone() const { return m_s.value("setup/done", false).toBool(); }
 void Settings::setSetupDone(bool done) { m_s.setValue("setup/done", done); }
+QString Settings::meetingsDir() const { return m_s.value("storage/meetingsDir").toString(); }
+void Settings::setMeetingsDir(const QString &dir)
+{
+    if (dir.isEmpty())
+        m_s.remove("storage/meetingsDir");
+    else
+        m_s.setValue("storage/meetingsDir", dir);
+    m_s.sync();
+}
 QByteArray Settings::windowGeometry() const { return m_s.value("ui/geometry").toByteArray(); }
 void Settings::setWindowGeometry(const QByteArray &g) { m_s.setValue("ui/geometry", g); }
 

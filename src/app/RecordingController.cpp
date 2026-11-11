@@ -92,6 +92,33 @@ RecordingController::RecordingController(MeetingStore &store, QObject *parent) :
     connect(&m_poll, &QTimer::timeout, this, &RecordingController::poll);
     checkAudioSetup();
     connect(this, &RecordingController::sourcesChanged, this, &RecordingController::checkAudioSetup);
+    connect(this, &RecordingController::sourcesChanged, this, &RecordingController::detectCalls);
+}
+
+void RecordingController::detectCalls()
+{
+    if (!m_graph.running())
+        return;
+    // Apps that hold calls. Browsers too, for Meet, Teams on the web and
+    // the like; the suggestion is only a notification and is off by default.
+    static const QStringList callApps = {"zoom", "teams", "slack", "discord", "skype", "webex", "signal",
+                                         "telegram", "element", "jitsi", "firefox", "chrome", "chromium",
+                                         "brave", "msedge", "vivaldi", "opera"};
+    QSet<QString> now;
+    for (const auto &n : m_graph.nodes()) {
+        if (n.ours || n.mediaClass != "Stream/Input/Audio")
+            continue;
+        const QString key = QString::fromStdString(audio::appKey(n));
+        bool call = false;
+        for (const auto &a : callApps)
+            call |= key.contains(a, Qt::CaseInsensitive);
+        if (!call)
+            continue;
+        now.insert(key);
+        if (!m_callApps.contains(key) && !recording())
+            Q_EMIT callDetected(QString::fromStdString(audio::appDisplayName(n)), "app:" + key);
+    }
+    m_callApps = now;
 }
 
 void RecordingController::checkAudioSetup()

@@ -30,6 +30,7 @@
 #include <QSplitter>
 #include <QStackedWidget>
 #include <QSystemTrayIcon>
+#include <QTimer>
 #include <QVBoxLayout>
 
 namespace afterline::ui {
@@ -314,6 +315,55 @@ void MainWindow::showMeeting(const QString &id, double seekTo)
     m_library->select(id);
     m_meeting->open(id, seekTo);
     m_pages->setCurrentWidget(m_meeting);
+}
+
+void MainWindow::suggestRecording(const QString &appLabel, const QString &sourceKey)
+{
+    delete m_callPrompt;
+    auto *prompt = new QWidget(this);
+    m_callPrompt = prompt;
+    prompt->setObjectName("CallPrompt");
+    prompt->setAttribute(Qt::WA_StyledBackground);
+    auto *h = new QHBoxLayout(prompt);
+    h->setContentsMargins(14, 10, 8, 10);
+    h->setSpacing(10);
+    auto *dot = new QLabel;
+    dot->setPixmap(icon("record", Theme::color(Token::Recording)).pixmap(16, 16));
+    h->addWidget(dot);
+    h->addWidget(label(tr("<b>%1</b> is using your microphone. Record this call?").arg(appLabel.toHtmlEscaped())), 1);
+    auto *record = new QPushButton(tr("Record"));
+    record->setObjectName("Primary");
+    auto *dismiss = iconButton("close", tr("Dismiss"));
+    h->addWidget(record);
+    h->addWidget(dismiss);
+    connect(record, &QPushButton::clicked, this, [this, sourceKey] {
+        m_callPrompt->deleteLater();
+        m_callPrompt = nullptr;
+        recordFrom(sourceKey);
+    });
+    connect(dismiss, &QPushButton::clicked, this, [this] {
+        m_callPrompt->deleteLater();
+        m_callPrompt = nullptr;
+    });
+    // Floats over the top of the page; goes away on its own after a minute.
+    const int w = std::min(560, centralWidget()->width() - 340);
+    prompt->setFixedWidth(std::max(380, w));
+    prompt->adjustSize();
+    prompt->move(width() - prompt->width() - 24, 16);
+    prompt->show();
+    prompt->raise();
+    QTimer::singleShot(60000, prompt, [this, prompt] {
+        if (m_callPrompt == prompt) {
+            prompt->deleteLater();
+            m_callPrompt = nullptr;
+        }
+    });
+}
+
+void MainWindow::recordFrom(const QString &sourceKey)
+{
+    showRecord();
+    m_record->preselectSource(sourceKey);
 }
 
 void MainWindow::showTasks()

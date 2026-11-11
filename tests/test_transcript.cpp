@@ -40,6 +40,30 @@ std::vector<notes::Line> lines()
 class TranscriptTest : public QObject {
     Q_OBJECT
 private Q_SLOTS:
+    void filesIntoExistingFoldersOnly()
+    {
+        const QStringList folders{"Work", "School"};
+        // A known folder, matched without regard to case.
+        QJsonObject r = notes::validateClassification(
+            {{"folder", "work"}, {"confidence", "high"}, {"new_folder", ""}}, folders);
+        QCOMPARE(r["folder"].toString(), QString("Work"));
+        QVERIFY(r["confident"].toBool());
+        // An invented folder is never used; a sensible suggestion is kept.
+        r = notes::validateClassification({{"folder", "Clients"}, {"confidence", "high"}, {"new_folder", "acme corp"}},
+                                          folders);
+        QVERIFY(r["folder"].toString().isEmpty());
+        QVERIFY(!r["confident"].toBool());
+        QCOMPARE(r["newFolder"].toString(), QString("Acme corp"));
+        // Suggestions that are dates, too long, or already exist are dropped.
+        for (const char *bad : {"Meeting 12/03", "A very long folder name indeed", "school", "2026 planning"})
+            QVERIFY2(notes::validateClassification({{"folder", "none"}, {"confidence", "low"}, {"new_folder", bad}},
+                                                   folders)["newFolder"].toString().isEmpty(),
+                     bad);
+        // The grammar only allows the given folders (or none).
+        const QString g = notes::classifyGrammar(folders);
+        QVERIFY(g.contains("Work") && g.contains("School") && g.contains("none"));
+    }
+
     void formatsTimes()
     {
         QCOMPARE(formatTime(65), QString("1:05"));
@@ -80,10 +104,10 @@ private Q_SLOTS:
         in.title = "Weekly";
         in.transcript = sample();
         const QString srt = exportMeeting(in, ExportFormat::Srt);
-        QVERIFY(srt.startsWith("1\n00:00:01,000 --> 00:00:03,500\nMeeting: Good morning"));
+        QVERIFY(srt.startsWith("1\n00:00:01,000 --> 00:00:03,500\nOthers: Good morning"));
         QVERIFY(srt.contains("01:02:05,500 --> 01:02:09,000\nYou: I will send"));
         const QString vtt = exportMeeting(in, ExportFormat::WebVtt);
-        QVERIFY(vtt.startsWith("WEBVTT\n\n00:00:01.000 --> 00:00:03.500\n<v Meeting>Good morning"));
+        QVERIFY(vtt.startsWith("WEBVTT\n\n00:00:01.000 --> 00:00:03.500\n<v Others>Good morning"));
         const QString md = exportMeeting(in, ExportFormat::Markdown);
         QVERIFY(md.startsWith("# Weekly"));
         QVERIFY(md.contains("**01:02:05 · You**  \nI will send"));

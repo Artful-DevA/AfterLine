@@ -2,12 +2,15 @@
 // Meeting library: create/save/list, search (including Romanian without
 // diacritics), deletion, rebuilding a lost index, and crash recovery.
 #include "app/MeetingStore.h"
+#include "app/Tasks.h"
 #include "audio/Recorder.h"
 #include "core/Json.h"
 #include "core/OggOpus.h"
 #include "core/Transcript.h"
 
 #include <QFile>
+#include <QJsonArray>
+#include <QJsonObject>
 #include <QLockFile>
 #include <QTemporaryDir>
 #include <QtTest>
@@ -84,7 +87,7 @@ private Q_SLOTS:
         const auto passages = store.passagesFor("What did Maria prepare?", 5);
         QCOMPARE(passages.size(), 1);
         QCOMPARE(passages.first().meetingId, en.id);
-        QVERIFY(passages.first().text.contains("Meeting: Maria prepares the documentation."));
+        QVERIFY(passages.first().text.contains("Others: Maria prepares the documentation."));
         QVERIFY(store.passagesFor("what was it about", 5).isEmpty());  // nothing specific to look for
     }
 
@@ -144,6 +147,66 @@ private Q_SLOTS:
         QVERIFY(r.duration > 11 && r.duration <= 12.01);
         QCOMPARE(r.events.size(), 1);
         QCOMPARE(store.get(live.id).state, QString("recording"));
+    }
+
+    void foldersKeepIconColourAndFollowRenames()
+    {
+        MeetingStore store;
+        QVERIFY(store.open(root(), db(), nullptr));
+        MeetingInfo a = store.create("Zoom", {});
+        MeetingInfo b = store.create("Zoom", {});
+        QVERIFY(store.saveFolder(FolderInfo{"Work", "briefcase", "#3F72AF"}));
+        store.setFolder(a.id, "Work", true);
+        QCOMPARE(store.get(a.id).folder, QString("Work"));
+        QVERIFY(store.get(a.id).folderAuto);
+        // A folder named only by a meeting is listed (and remembered) too.
+        store.setFolder(b.id, "Clients");
+        QCOMPARE(store.folders().size(), 2);
+        QCOMPARE(store.folder("work").icon, QString("briefcase"));
+
+        // Renaming moves the meetings along; deleting keeps them, unfiled.
+        QVERIFY(store.saveFolder(FolderInfo{"Job", "star", "#B4553A"}, "Work"));
+        QCOMPARE(store.get(a.id).folder, QString("Job"));
+        QCOMPARE(store.folder("Job").icon, QString("star"));
+        store.removeFolder("Job");
+        QVERIFY(store.get(a.id).isValid());
+        QVERIFY(store.get(a.id).folder.isEmpty());
+        QVERIFY(!store.get(a.id).folderAuto);
+        QCOMPARE(store.folders().size(), 1);
+    }
+
+    void collectsTasksAndRemembersTickedOnes()
+    {
+        MeetingStore store;
+        QVERIFY(store.open(root(), db(), nullptr));
+        MeetingInfo m = store.create("Zoom", "Mic");
+        m.title = "Launch";
+        store.save(m);
+        QJsonArray items{QJsonObject{{"task", "Send the slides"}, {"owner", "You"}, {"due", "Friday"}, {"start", 12.5}},
+                         QJsonObject{{"task", "Book the room"}, {"owner", "Maria"}, {"due", ""}, {"start", 30.0}}};
+        QVERIFY(writeJsonFile(m.path("notes.json"), QJsonObject{{"action_items", items}}));
+
+        auto mine = collectTasks(store, true);
+        QCOMPARE(mine.size(), 1);
+        QCOMPARE(mine[0].task, QString("Send the slides"));
+        QCOMPARE(mine[0].due, QString("Friday"));
+        QCOMPARE(mine[0].meetingTitle, QString("Launch"));
+        QVERIFY(!mine[0].done);
+        QCOMPARE(collectTasks(store, false).size(), 2);
+
+        QVERIFY(setTaskDone(store, m.id, "Send the slides", true));
+        QVERIFY(collectTasks(store, true)[0].done);
+        QVERIFY(setTaskDone(store, m.id, "Send the slides", false));
+        QVERIFY(!collectTasks(store, true)[0].done);
+    }
+
+    void recognisesQuestionsAboutTasks()
+    {
+        for (const char *q : {"What do I need to do?", "Do I have tasks for next meeting?", "my action items",
+                              "What do I owe people", "any follow-ups for me?", "Who is responsible for the docs?"})
+            QVERIFY2(isTaskQuestion(q), q);
+        for (const char *q : {"What did we decide about the website?", "When is the launch?", "Summarize the call"})
+            QVERIFY2(!isTaskQuestion(q), q);
     }
 
     void deletesMeetings()

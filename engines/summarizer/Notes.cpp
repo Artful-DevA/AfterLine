@@ -237,7 +237,7 @@ QString extractionUserPrompt(const QString &title, int part, int parts, const st
 QString overviewSystemPrompt(const QString &languageCode)
 {
     return QString("You summarise meetings. Using only the section summaries and points given, write a short "
-                   "title (at most 8 words) and a summary of 2 to 5 sentences of what happened in the meeting. "
+                   "title (at most 6 words, naming the topic; do not use the words meeting, summary, notes or call) and a summary of 2 to 5 sentences of what happened in the meeting. "
                    "Add nothing that is not in the input. Write in %1.")
         .arg(languageName(languageCode));
 }
@@ -304,9 +304,10 @@ QJsonObject validateClassification(const QJsonObject &raw, const QStringList &fo
         if (f.compare(raw["folder"].toString(), Qt::CaseInsensitive) == 0)
             folder = f;
     QString suggestion = raw["new_folder"].toString().simplified();
+    // Folder names are subjects, not dates: no "12/03", "2026", "May 4".
+    const bool looksLikeDate = suggestion.contains(QRegularExpression(R"(\d{1,2}[./ -]\d{1,2}|\b(19|20)\d\d\b)"));
     suggestion.remove(QRegularExpression(R"([\"'`*#\[\]{}<>/\\|])"));
     const bool tooLong = suggestion.size() > 28 || suggestion.split(' ', Qt::SkipEmptyParts).size() > 3;
-    const bool looksLikeDate = suggestion.contains(QRegularExpression(R"(\d{1,2}[./ -]\d{1,2}|\b(19|20)\d\d\b)"));
     for (const auto &f : folders)
         if (f.compare(suggestion, Qt::CaseInsensitive) == 0)
             suggestion.clear();

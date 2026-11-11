@@ -15,7 +15,12 @@
 #include "ui/SetupDialog.h"
 #include "ui/Theme.h"
 
+#include <QAbstractScrollArea>
+#include <QAbstractSlider>
+#include <QAbstractSpinBox>
 #include <QApplication>
+#include <QComboBox>
+#include <QScrollBar>
 #include <QLocalServer>
 #include <QLocalSocket>
 #include <QMenu>
@@ -27,6 +32,43 @@
 #include <unistd.h>
 
 namespace afterline {
+
+namespace {
+// Scrolling a page must never change a setting the pointer happens to pass
+// over: drop-downs, number boxes and sliders take the wheel only once they
+// have been clicked; otherwise the page scrolls.
+class WheelGuard : public QObject {
+public:
+    using QObject::QObject;
+    bool eventFilter(QObject *o, QEvent *e) override
+    {
+        if (e->type() == QEvent::Polish) {
+            // Qt focuses these on a wheel turn by default; only a click should.
+            auto *w = qobject_cast<QWidget *>(o);
+            if (w && w->focusPolicy() == Qt::WheelFocus &&
+                (qobject_cast<QComboBox *>(w) || qobject_cast<QAbstractSpinBox *>(w) || qobject_cast<QAbstractSlider *>(w)))
+                w->setFocusPolicy(Qt::StrongFocus);
+            return false;
+        }
+        if (e->type() != QEvent::Wheel)
+            return false;
+        auto *w = qobject_cast<QWidget *>(o);
+        if (!w || w->hasFocus())
+            return false;
+        if (!qobject_cast<QComboBox *>(w) && !qobject_cast<QAbstractSpinBox *>(w) && !qobject_cast<QAbstractSlider *>(w))
+            return false;
+        if (qobject_cast<QScrollBar *>(w))
+            return false;
+        // Hand the wheel to the scrollable page around the control.
+        for (QWidget *p = w->parentWidget(); p; p = p->parentWidget())
+            if (auto *area = qobject_cast<QAbstractScrollArea *>(p)) {
+                QCoreApplication::sendEvent(area->verticalScrollBar(), e);
+                break;
+            }
+        return true;
+    }
+};
+}  // namespace
 
 Application::Application() = default;
 
@@ -71,6 +113,7 @@ int Application::run(bool startHidden)
         }
     });
 
+    qApp->installEventFilter(new WheelGuard(this));
     m_ctx.settings = new Settings;
     ui::Theme::apply(*qApp, m_ctx.settings->theme());
 
@@ -106,6 +149,17 @@ int Application::run(bool startHidden)
             notify(tr("Recording saved"), m_ctx.settings->autoTranscribe() ? tr("Transcription has started.") : QString());
     });
     connect(m_ctx.recording, &RecordingController::pausedChanged, this, [this] { updateTray(); });
+    // Optional (off by default): offer to record when a call starts. Only a
+    // suggestion; nothing is ever recorded without a click.
+    connect(m_ctx.recording, &RecordingController::callDetected, this, [this](const QString &app, const QString &key) {
+        if (!m_ctx.settings->suggestRecording() || m_ctx.recording->recording() || !m_window)
+            return;
+        m_window->suggestRecording(app, key);
+        if (!m_window->isActiveWindow()) {
+            m_pendingCallSource = key;
+            notify(tr("%1 is using your microphone").arg(app), tr("Click to record this call with AfterLine."));
+        }
+    });
     connect(m_ctx.recording, &RecordingController::warning, this, [this](const QString &title, const QString &msg) {
         if (!m_window || !m_window->isActiveWindow())
             notify(title, msg);
@@ -212,6 +266,13 @@ void Application::setupTray()
         return;
     m_tray = new QSystemTrayIcon(QIcon(":/icons/afterline.svg"), this);
     m_tray->setToolTip("AfterLine");
+    connect(m_tray, &QSystemTrayIcon::messageClicked, this, [this] {
+        if (m_pendingCallSource.isEmpty() || !m_window)
+            return;
+        m_window->bringToFront();
+        m_window->recordFrom(m_pendingCallSource);
+        m_pendingCallSource.clear();
+    });
     connect(m_tray, &QSystemTrayIcon::activated, this, [this](QSystemTrayIcon::ActivationReason r) {
         if (r == QSystemTrayIcon::Trigger && m_window)
             m_window->bringToFront();

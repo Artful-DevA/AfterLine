@@ -28,6 +28,7 @@ public:
     void togglePause();
     void activate();     // page shown
     void deactivate();   // page hidden
+    void preselectSource(const QString &key);  // e.g. the call app that just started
 
 Q_SIGNALS:
     void stopped(const QString &meetingId);
@@ -77,6 +78,7 @@ private:
     QString m_partial, m_partialSource;
     QTimer m_timerTick;
     bool m_active = false;
+    QString m_preselect;
 };
 
 }  // namespace afterline::ui

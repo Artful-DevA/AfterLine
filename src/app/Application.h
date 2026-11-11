@@ -49,6 +49,7 @@ private:
     AppContext m_ctx;
     QLocalServer *m_server = nullptr;
     QSystemTrayIcon *m_tray = nullptr;
+    QString m_pendingCallSource;  // the call a notification offered to record
     QPointer<ui::MainWindow> m_window;
 };
 

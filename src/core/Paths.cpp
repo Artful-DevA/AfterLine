@@ -4,6 +4,7 @@
 #include <QCoreApplication>
 #include <QDir>
 #include <QFileInfo>
+#include <QSettings>
 #include <QStandardPaths>
 
 namespace afterline {
@@ -27,7 +28,16 @@ QString dataDir()
     return ensure(base + "/AfterLine");
 }
 
-QString meetingsDir() { return ensure(dataDir() + "/meetings"); }
+QString defaultMeetingsDir() { return dataDir() + "/meetings"; }
+
+QString meetingsDir()
+{
+    // Chosen in Settings → Storage; the library follows it.
+    const QString chosen = QSettings("AfterLine", "AfterLine").value("storage/meetingsDir").toString();
+    if (!chosen.isEmpty())
+        return ensure(chosen);
+    return ensure(defaultMeetingsDir());
+}
 QString modelsDir() { return ensure(dataDir() + "/models"); }
 QString logsDir() { return ensure(dataDir() + "/logs"); }
 QString databasePath() { return dataDir() + "/library.sqlite"; }

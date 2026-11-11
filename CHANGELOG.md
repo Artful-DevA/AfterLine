@@ -28,8 +28,20 @@ C++/Qt 6 application.
 - Built-in local notes (llama.cpp, Qwen3): summary, key points, decisions,
   action items, open questions and dates, every item cited and checked against
   the transcript; automatic meeting titles.
-- Ask AfterLine: cited answers about one meeting or the whole library.
-- Meeting library with accent-insensitive full-text search, folders, tags and
+- Ask AfterLine: a chat with cited answers (play buttons for each source)
+  about one meeting or the whole library; questions about tasks are answered
+  from the notes' action items.
+- My tasks: action items assigned to you across all meetings, tickable,
+  each linked to the moment it was agreed. Action items can also be ticked
+  off in the notes.
+- Folders with chosen icons and colours, drag and drop, and AI filing of new
+  meetings (with undo) or suggested new folders; an Organize button files
+  existing meetings.
+- A choice of where recordings are saved, with a safe move of the library.
+- Optional (off by default) suggestion to record when a call app starts
+  using the microphone.
+- AfterLine's own dialogs instead of the desktop's stock message boxes.
+- Meeting library with accent-insensitive full-text search, tags and
   safe deletion; Notes, Transcript and Audio views with a player and waveform.
 - Export to Markdown, text, SRT, WebVTT, JSON and audio.
 - First-run setup and model manager with resumable, verified downloads and

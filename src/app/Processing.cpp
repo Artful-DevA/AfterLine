@@ -13,12 +13,31 @@
 #include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QRegularExpression>
 #include <QTemporaryDir>
 #include <QTimer>
 
 #include <csignal>
 
 namespace afterline {
+
+namespace {
+// "Website Redesign Meeting Summary" → "Website Redesign": the sidebar
+// already says it is a meeting.
+QString cleanTitle(QString t)
+{
+    t = t.simplified();
+    static const QRegularExpression tail(
+        R"(\s*[-:–—,]?\s*\b(meeting\s+(summary|notes|recap|minutes)|summary|recap|notes|minutes|meeting|call|discussion)\s*$)",
+        QRegularExpression::CaseInsensitiveOption);
+    for (int i = 0; i < 2; ++i) {
+        const QString shorter = QString(t).remove(tail).trimmed();
+        if (shorter.split(' ', Qt::SkipEmptyParts).size() >= 2)
+            t = shorter;
+    }
+    return t;
+}
+}  // namespace
 
 Processing::Processing(MeetingStore &store, Settings &settings, QObject *parent)
     : QObject(parent), m_store(store), m_settings(settings)
@@ -423,8 +442,8 @@ void Processing::onExit(int code, QProcess::ExitStatus status)
                 QFile::remove(m.path("live-transcript.json"));
             } else {
                 const MeetingNotes n = loadNotes(job.output);
-                if (m.titleIsAuto && !n.title().isEmpty()) {
-                    m.title = n.title();
+                if (m.titleIsAuto && !cleanTitle(n.title()).isEmpty()) {
+                    m.title = cleanTitle(n.title());
                     m_store.save(m);
                 }
                 // File the meeting into a folder (or suggest one).

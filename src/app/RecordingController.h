@@ -14,6 +14,7 @@
 #include <QElapsedTimer>
 #include <QLockFile>
 #include <QObject>
+#include <QSet>
 #include <QTimer>
 
 #include <memory>
@@ -68,10 +69,14 @@ Q_SIGNALS:
     // A problem the person should know about now.
     void warning(const QString &title, const QString &message);
     void warningCleared();
+    // A call app (or browser) started using the microphone while not recording.
+    void callDetected(const QString &appLabel, const QString &sourceKey);
 
 private:
     void poll();
     void checkAudioSetup();
+    void detectCalls();
+    QSet<QString> m_callApps;  // apps seen using the microphone
     void event(const QString &type, const QString &message);
     void watchTrack(const audio::TrackStatus &now, audio::TrackStatus &before, bool microphone);
 

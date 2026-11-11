@@ -46,6 +46,7 @@ Q_SIGNALS:
     void closeRequested();
 
 private:
+    void changeStorage();
     AppContext m_ctx;
 };
 

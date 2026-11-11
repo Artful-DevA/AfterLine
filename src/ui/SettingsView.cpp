@@ -3,6 +3,8 @@
 
 #include "app/MeetingStore.h"
 #include "app/ModelManager.h"
+#include "app/Processing.h"
+#include "app/RecordingController.h"
 #include "app/Settings.h"
 #include "core/Paths.h"
 #include "ui/Dialogs.h"
@@ -16,6 +18,10 @@
 #include <QDesktopServices>
 #include <QDirIterator>
 #include <QFileDialog>
+#include <QFileInfo>
+#include <QFile>
+#include <QApplication>
+#include <QProcess>
 #include <QFormLayout>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -215,6 +221,11 @@ SettingsView::SettingsView(AppContext ctx, QWidget *parent) : QWidget(parent), m
     v->addLayout(form);
     toggle(tr("Keep running in the system tray when the window is closed"), ctx.settings->closeToTray(),
            &Settings::setCloseToTray);
+    toggle(tr("Suggest recording when a call starts"), ctx.settings->suggestRecording(),
+           &Settings::setSuggestRecording);
+    v->addWidget(label(tr("When Zoom, Teams, Slack, Discord or a browser starts using your microphone, AfterLine "
+                          "asks whether to record. It never records on its own."),
+                       "Muted"));
 
     // Transcription
     section(tr("Transcription"),
@@ -253,6 +264,11 @@ SettingsView::SettingsView(AppContext ctx, QWidget *parent) : QWidget(parent), m
             tr("Summaries, decisions and action items are written by a language model on this computer. Every "
                "item is linked to the transcript, and details the transcript does not support are left out."));
     toggle(tr("Write notes automatically after transcription"), ctx.settings->autoNotes(), &Settings::setAutoNotes);
+    toggle(tr("File new meetings into folders automatically"), ctx.settings->autoOrganize(),
+           &Settings::setAutoOrganize);
+    v->addWidget(label(tr("After the notes, AfterLine puts the meeting in one of your folders when the match is "
+                          "clear (you can undo it), or suggests a new folder."),
+                       "Muted"));
     v->addWidget(modelList(ctx, ModelKind::Notes));
 
     // Performance
@@ -290,22 +306,49 @@ SettingsView::SettingsView(AppContext ctx, QWidget *parent) : QWidget(parent), m
     v->addWidget(importStatus);
 
     // Privacy
-    section(tr("Privacy and storage"));
+    section(tr("Where recordings are saved"),
+            tr("Each meeting is a folder with its audio, transcript and notes, in plain files you can back up or "
+               "sync."));
     qint64 used = 0;
+    int meetingCount = 0;
     QDirIterator it(meetingsDir(), QDir::Files, QDirIterator::Subdirectories);
     while (it.hasNext()) {
         it.next();
         used += it.fileInfo().size();
+        meetingCount += it.fileName() == "meeting.json";
     }
+    auto *pathRow = new QWidget;
+    pathRow->setObjectName("ModelRow");
+    pathRow->setAttribute(Qt::WA_StyledBackground);
+    auto *pr = new QHBoxLayout(pathRow);
+    pr->setContentsMargins(14, 10, 10, 10);
+    auto *folderIcon = new QLabel;
+    folderIcon->setPixmap(icon("folder", Theme::color(Token::Accent)).pixmap(22, 22));
+    pr->addWidget(folderIcon, 0, Qt::AlignTop);
+    auto *pv = new QVBoxLayout;
+    auto *pathLabel = label(QDir::toNativeSeparators(meetingsDir()));
+    QFont pathFont = pathLabel->font();
+    pathFont.setWeight(QFont::DemiBold);
+    pathLabel->setFont(pathFont);
+    pv->addWidget(pathLabel);
+    pv->addWidget(label(tr("%1 meetings · %2 used · %3 free on this disk")
+                            .arg(meetingCount)
+                            .arg(formatBytes(used), formatBytes(QStorageInfo(meetingsDir()).bytesAvailable())),
+                        "Muted"));
+    pr->addLayout(pv, 1);
+    auto *open = new QPushButton(icon("folder"), tr("Open"));
+    connect(open, &QPushButton::clicked, this, [] { QDesktopServices::openUrl(QUrl::fromLocalFile(meetingsDir())); });
+    auto *change = new QPushButton(tr("Change…"));
+    connect(change, &QPushButton::clicked, this, &SettingsView::changeStorage);
+    pr->addWidget(open, 0, Qt::AlignTop);
+    pr->addWidget(change, 0, Qt::AlignTop);
+    v->addWidget(pathRow);
+
+    section(tr("Privacy"));
     v->addWidget(label(
-        tr("Your recordings, transcripts and notes are stored only in %1 (%2 used, %3 free). AfterLine has no "
-           "account, sends no telemetry, and never uploads your meetings. The only network access is downloading "
-           "models when you ask for them; you can disconnect from the internet and everything else keeps working.")
-            .arg(meetingsDir(), formatBytes(used), formatBytes(QStorageInfo(meetingsDir()).bytesAvailable()))));
-    auto *open = new QPushButton(icon("folder"), tr("Open the data folder"));
-    open->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
-    connect(open, &QPushButton::clicked, this, [] { QDesktopServices::openUrl(QUrl::fromLocalFile(dataDir())); });
-    v->addWidget(open);
+        tr("AfterLine has no account, sends no telemetry, and never uploads your meetings. The only network access "
+           "is downloading models when you ask for them; you can disconnect from the internet and everything else "
+           "keeps working.")));
     v->addWidget(label(tr("Recordings are not encrypted by AfterLine; use your system's disk encryption to protect "
                           "them if this computer is shared or could be lost."),
                        "Muted"));
@@ -322,6 +365,97 @@ SettingsView::SettingsView(AppContext ctx, QWidget *parent) : QWidget(parent), m
             l->setTextFormat(Qt::RichText);
         }
     root->addStretch();
+}
+
+void SettingsView::changeStorage()
+{
+    if (m_ctx.recording->recording() || m_ctx.processing->busy()) {
+        inform(this, tr("Not right now"),
+               tr("Wait until the recording and any transcription or notes in progress have finished, then try "
+                  "again."),
+               Tone::Info, "clock");
+        return;
+    }
+    const QString picked = QFileDialog::getExistingDirectory(this, tr("Choose where to save recordings"),
+                                                             QDir::homePath());
+    if (picked.isEmpty())
+        return;
+    // An empty folder is used as it is; otherwise AfterLine makes its own
+    // folder inside it, so your other files are never mixed in.
+    QString target = QDir::cleanPath(picked);
+    if (!QDir(target).isEmpty(QDir::AllEntries | QDir::NoDotAndDotDot) &&
+        !QFileInfo::exists(target + "/folders.json"))
+        target += "/AfterLine Meetings";
+    const QString current = QDir::cleanPath(meetingsDir());
+    if (target == current)
+        return;
+    if (target.startsWith(current + "/")) {
+        inform(this, tr("Choose another folder"), tr("The new folder cannot be inside the current one."),
+               Tone::Warning);
+        return;
+    }
+    QDir().mkpath(target);
+    const QFileInfo ti(target);
+    if (!ti.isDir() || !ti.isWritable()) {
+        inform(this, tr("Cannot save there"), tr("AfterLine cannot write to %1.").arg(target), Tone::Warning);
+        return;
+    }
+    qint64 needed = 0;
+    QDirIterator it(current, QDir::Files | QDir::Hidden, QDirIterator::Subdirectories);
+    while (it.hasNext()) {
+        it.next();
+        needed += it.fileInfo().size();
+    }
+    if (QStorageInfo(target).bytesAvailable() < needed + 200 * 1024 * 1024) {
+        inform(this, tr("Not enough space"),
+               tr("Your meetings need %1, and the new place has %2 free.")
+                   .arg(formatBytes(needed), formatBytes(QStorageInfo(target).bytesAvailable())),
+               Tone::Warning);
+        return;
+    }
+    if (!confirm(this, tr("Move your meetings?"),
+                 tr("Your meetings (%1) will be moved to:\n%2\n\nNew recordings will be saved there too. AfterLine "
+                    "restarts when the move is done.")
+                     .arg(formatBytes(needed), QDir::toNativeSeparators(target)),
+                 tr("Move and restart"), Tone::Neutral, "folder"))
+        return;
+
+    QApplication::setOverrideCursor(Qt::WaitCursor);
+    QString error;
+    // Copy everything first; remove the originals only once all of it is in
+    // the new place, so an interrupted move never loses a meeting.
+    bool ok = true;
+    QDirIterator files(current, QDir::Files | QDir::Hidden, QDirIterator::Subdirectories);
+    QStringList copied;
+    while (ok && files.hasNext()) {
+        const QString src = files.next();
+        const QString rel = QDir(current).relativeFilePath(src);
+        const QString dst = target + "/" + rel;
+        QDir().mkpath(QFileInfo(dst).absolutePath());
+        if (QFileInfo::exists(dst) || !QFile::copy(src, dst)) {
+            ok = false;
+            error = tr("Could not copy %1.").arg(rel);
+        } else {
+            copied << dst;
+        }
+    }
+    if (!ok) {
+        for (const auto &c : copied)
+            QFile::remove(c);
+        QApplication::restoreOverrideCursor();
+        inform(this, tr("The meetings were not moved"), error + " " + tr("Nothing was changed."), Tone::Warning);
+        return;
+    }
+    m_ctx.settings->setMeetingsDir(target == defaultMeetingsDir() ? QString() : target);
+    QDir(current).removeRecursively();
+    // The search index is rebuilt from the folders in their new place.
+    QFile::remove(databasePath());
+    QFile::remove(databasePath() + "-wal");
+    QFile::remove(databasePath() + "-shm");
+    QApplication::restoreOverrideCursor();
+    // Start again once this instance has exited (one AfterLine at a time).
+    QProcess::startDetached("/bin/sh", {"-c", "sleep 1; exec \"$0\"", QCoreApplication::applicationFilePath()});
+    QCoreApplication::quit();
 }
 
 }  // namespace afterline::ui

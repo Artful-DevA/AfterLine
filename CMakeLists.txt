@@ -60,6 +60,7 @@ add_library(afterline_core STATIC
   src/app/Database.cpp
   src/app/MeetingStore.cpp
   src/app/ModelCatalog.cpp
+  src/app/Tasks.cpp
 )
 target_include_directories(afterline_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(afterline_core PUBLIC afterline_codec Qt6::Core Threads::Threads
@@ -89,7 +90,6 @@ if(AFTERLINE_BUILD_GUI)
     src/app/ModelManager.cpp
     src/app/Processing.cpp
     src/app/LiveTranscriber.cpp
-    src/app/Tasks.cpp
     src/app/RecordingController.cpp
     src/ui/Theme.cpp
     src/ui/Icons.cpp

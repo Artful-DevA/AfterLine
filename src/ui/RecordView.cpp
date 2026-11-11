@@ -408,7 +408,7 @@ void RecordView::renderLive()
     for (int i = 0; i < lines.size(); ++i) {
         const LiveLine &l = lines[i];
         const bool mic = l.source == "microphone";
-        const QString who = mic ? tr("You") : tr("Call");
+        const QString who = speakerName(l.source);
         const QString color = Theme::hex(mic ? Token::TrackMicrophone : Token::TrackComputer);
         QString text = l.text.toHtmlEscaped();
         while (i + 1 < lines.size() && lines[i + 1].source == l.source && lines[i + 1].start - lines[i].end < 4.0)
@@ -436,10 +436,20 @@ void RecordView::setTesting(bool on)
     updatePreview();
 }
 
+void RecordView::preselectSource(const QString &key)
+{
+    m_preselect = key;
+    reloadSources();
+}
+
 void RecordView::reloadSources()
 {
-    const QString keepSource = m_source->currentData().toString().isEmpty() ? m_ctx.settings->lastSource()
-                                                                             : m_source->currentData().toString();
+    QString keepSource = m_source->currentData().toString().isEmpty() ? m_ctx.settings->lastSource()
+                                                                       : m_source->currentData().toString();
+    if (!m_preselect.isEmpty()) {
+        keepSource = m_preselect;
+        m_preselect.clear();
+    }
     const QString keepMic = m_mic->currentData().toString().isEmpty() ? m_ctx.settings->lastMicrophone()
                                                                        : m_mic->currentData().toString();
     {
