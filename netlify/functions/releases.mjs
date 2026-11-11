@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // /api/releases: which installers the latest release actually contains, so
 // the page can mark each download button available or not.
-import { TARGETS, RELEASES_URL, assetFor, latestRelease } from './releases-lib.mjs';
+import { TARGETS, RELEASES_URL, assetFor, classify, latestRelease } from './releases-lib.mjs';
 
 export default async () => {
   const headers = { 'Content-Type': 'application/json', 'Cache-Control': 'public, s-maxage=120, max-age=60' };
@@ -12,8 +12,13 @@ export default async () => {
       const asset = assetFor(release, key);
       targets[key] = asset ? { name: asset.name, size: asset.size } : null;
     }
+    // Every installable file in the release, for the full package list.
+    const assets = (release?.assets ?? [])
+      .map((a) => ({ name: a.name, size: a.size, ...classify(a.name) }))
+      .filter((a) => a.type !== 'other');
     return new Response(JSON.stringify({
       available: Boolean(release),
+      assets,
       version: release ? release.tag_name : null,
       published: release ? release.published_at : null,
       releaseUrl: release ? release.html_url : RELEASES_URL,

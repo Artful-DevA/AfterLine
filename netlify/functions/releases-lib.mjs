@@ -33,3 +33,14 @@ export function assetFor(release, target) {
   if (!release || !spec) return null;
   return (release.assets || []).find((a) => spec.match(a.name)) || null;
 }
+
+// Type, a readable label and the download-route target for an asset name.
+export function classify(name) {
+  for (const [target, spec] of Object.entries(TARGETS)) {
+    if (!spec.match(name)) continue;
+    const type = target === 'checksums' ? 'checksums' : target === 'arch' ? 'arch' : target === 'appimage' ? 'appimage'
+      : target.startsWith('fedora') ? 'rpm' : 'deb';
+    return { type, label: spec.label, target };
+  }
+  return { type: 'other', label: name, target: null };
+}
