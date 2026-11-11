@@ -2,6 +2,7 @@
 #include "ui/MainWindow.h"
 
 #include "app/MeetingStore.h"
+#include "app/ModelCatalog.h"
 #include "app/ModelManager.h"
 #include "app/Processing.h"
 #include "app/RecordingController.h"
@@ -13,6 +14,7 @@
 #include "ui/MeetingView.h"
 #include "ui/RecordView.h"
 #include "ui/SettingsView.h"
+#include "ui/TasksView.h"
 #include "ui/Theme.h"
 #include "ui/Widgets.h"
 
@@ -114,13 +116,45 @@ MainWindow::MainWindow(AppContext ctx, QWidget *parent) : QMainWindow(parent), m
     m_record = new RecordView(ctx);
     m_meeting = new MeetingView(ctx);
     m_settings = new SettingsView(ctx);
+    m_tasks = new TasksView(ctx);
     for (QWidget *w : {m_home, static_cast<QWidget *>(m_record), static_cast<QWidget *>(m_meeting),
-                       static_cast<QWidget *>(m_settings)})
+                       static_cast<QWidget *>(m_settings), static_cast<QWidget *>(m_tasks)})
         m_pages->addWidget(w);
 
     connect(m_library, &LibraryView::recordClicked, this, &MainWindow::showRecord);
     connect(m_library, &LibraryView::settingsClicked, this, &MainWindow::showSettings);
     connect(m_library, &LibraryView::openMeeting, this, &MainWindow::showMeeting);
+    connect(m_library, &LibraryView::tasksClicked, this, &MainWindow::showTasks);
+    connect(m_library, &LibraryView::foldersChanged, this, [this] {
+        if (m_pages->currentWidget() == m_meeting)
+            m_meeting->reload();
+    });
+    connect(m_library, &LibraryView::organizeRequested, this, [this] {
+        const ModelSpec *notes = findModel(m_ctx.settings->notesModel());
+        if (!notes || !notes->installed()) {
+            inform(this, tr("Organizing needs the notes model"),
+                   tr("AfterLine files meetings into folders using the same model that writes the notes. Download it "
+                      "in Settings → AI models."),
+                   Tone::Info, "sparkles");
+            return;
+        }
+        const int n = m_ctx.processing->organizeAll();
+        inform(this, n ? tr("Organizing your meetings") : tr("Nothing to organize"),
+               n ? (n == 1 ? tr("AfterLine is reading 1 meeting and will file it into one of your folders, or "
+                                "suggest a new folder for it.")
+                           : tr("AfterLine is reading %1 meetings and will file each one into one of your folders, "
+                                "or suggest a new folder. Meetings it is unsure about are left where they are.")
+                                 .arg(n))
+                 : tr("Every meeting with notes is already in a folder."),
+               Tone::Info, "sparkles");
+    });
+    connect(ctx.processing, &Processing::organized, this, [this](const QString &id) {
+        m_library->refresh();
+        if (m_pages->currentWidget() == m_meeting && m_meeting->meetingId() == id)
+            m_meeting->reload();
+    });
+    connect(m_tasks, &TasksView::openMeeting, this, [this](const QString &id, double t) { showMeeting(id, t); });
+    connect(m_tasks, &TasksView::changed, m_library, &LibraryView::refresh);
     connect(m_record, &RecordView::stopped, this, [this](const QString &id) {
         m_library->refresh();
         showMeeting(id);
@@ -164,7 +198,7 @@ MainWindow::MainWindow(AppContext ctx, QWidget *parent) : QMainWindow(parent), m
     });
     connect(ctx.processing, &Processing::progress, this,
             [this](const QString &id, Processing::Kind kind, double f, const QString &) {
-                if (kind == Processing::Kind::Ask)
+                if (kind == Processing::Kind::Ask || kind == Processing::Kind::Organize)
                     return;
                 m_library->setLiveStatus(id, (kind == Processing::Kind::Transcript ? tr("Transcribing %1%")
                                                                                    : tr("Notes %1%"))
@@ -280,6 +314,13 @@ void MainWindow::showMeeting(const QString &id, double seekTo)
     m_library->select(id);
     m_meeting->open(id, seekTo);
     m_pages->setCurrentWidget(m_meeting);
+}
+
+void MainWindow::showTasks()
+{
+    m_library->select({});
+    m_tasks->reload();
+    m_pages->setCurrentWidget(m_tasks);
 }
 
 void MainWindow::showSettings()

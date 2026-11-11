@@ -1,11 +1,16 @@
 // SPDX-License-Identifier: MIT
 #include "ui/Dialogs.h"
 
+#include "app/MeetingStore.h"
+
 #include "ui/Icons.h"
 #include "ui/Theme.h"
 #include "ui/Widgets.h"
 
+#include <QButtonGroup>
 #include <QDialog>
+#include <QGridLayout>
+#include <QToolButton>
 #include <QEvent>
 #include <QGraphicsDropShadowEffect>
 #include <QHBoxLayout>
@@ -194,22 +199,152 @@ void inform(QWidget *parent, const QString &title, const QString &text, Tone ton
 }
 
 bool askText(QWidget *parent, const QString &title, const QString &text, QString *value, const QString &placeholder,
-             const QString &confirmText)
+             const QString &confirmText, bool allowEmpty)
 {
-    Card d(parent, title, text, Tone::Neutral, "edit");
+    Card d(parent, title, text, Tone::Neutral, allowEmpty ? "tag" : "edit");
     auto *edit = new QLineEdit(*value);
     edit->setPlaceholderText(placeholder);
     d.body()->addWidget(edit);
     d.addButton(QObject::tr("Cancel"), nullptr, false);
     auto *ok = d.addButton(confirmText.isEmpty() ? QObject::tr("Save") : confirmText, "Primary", true);
     ok->setDefault(true);
-    QObject::connect(edit, &QLineEdit::textChanged, ok, [ok](const QString &t) { ok->setEnabled(!t.trimmed().isEmpty()); });
-    ok->setEnabled(!value->trimmed().isEmpty());
+    QObject::connect(edit, &QLineEdit::textChanged, ok,
+                     [ok, allowEmpty](const QString &t) { ok->setEnabled(allowEmpty || !t.trimmed().isEmpty()); });
+    ok->setEnabled(allowEmpty || !value->trimmed().isEmpty());
     edit->setFocus();
     edit->selectAll();
     if (d.run() != QDialog::Accepted)
         return false;
     *value = edit->text().trimmed();
+    return true;
+}
+
+const QStringList &folderIcons()
+{
+    static const QStringList icons = {"folder", "briefcase", "people",  "star",  "heart",  "book",
+                                      "rocket", "home",      "code",    "chart", "bulb",   "calendar",
+                                      "flag",   "school",    "target",  "coffee", "globe", "ask"};
+    return icons;
+}
+
+const QStringList &folderColors()
+{
+    static const QStringList colors = {"#B4553A", "#C2841F", "#6B8E3A", "#2F8F83",
+                                       "#3F72AF", "#6A5ACD", "#A0527F", "#6B7280"};
+    return colors;
+}
+
+QColor folderColor(const QString &stored)
+{
+    QColor c(stored.isEmpty() ? folderColors().first() : stored);
+    if (!c.isValid())
+        c = Theme::color(Token::Accent);
+    return Theme::isDark() ? c.lighter(135) : c;
+}
+
+bool editFolder(QWidget *parent, FolderInfo *folder, bool isNew, const QStringList &taken)
+{
+    Card d(parent, isNew ? QObject::tr("New folder") : QObject::tr("Edit folder"),
+           QObject::tr("Pick a name, an icon and a colour. AfterLine can file new meetings into your folders for you."),
+           Tone::Neutral, "folder");
+    auto *name = new QLineEdit(folder->name);
+    name->setPlaceholderText(QObject::tr("For example: Work, Clients, School"));
+    d.body()->addWidget(name);
+    d.body()->addSpacing(6);
+    d.body()->addWidget(label(QObject::tr("ICON"), "Eyebrow"));
+
+    QString chosenIcon = folder->icon.isEmpty() ? "folder" : folder->icon;
+    QString chosenColor = folder->color.isEmpty() ? folderColors().first() : folder->color;
+    auto *iconGrid = new QGridLayout;
+    iconGrid->setSpacing(6);
+    auto *icons = new QButtonGroup(&d);
+    QVector<QToolButton *> iconButtons;
+    auto paintIcons = [&] {
+        for (auto *b : iconButtons) {
+            const bool on = b->property("iconName").toString() == chosenIcon;
+            const QColor c = folderColor(chosenColor);
+            b->setIcon(icon(b->property("iconName").toString(), on ? c : Theme::color(Token::Muted)));
+            b->setChecked(on);
+        }
+    };
+    int i = 0;
+    for (const QString &ic : folderIcons()) {
+        auto *b = new QToolButton;
+        b->setObjectName("IconChoice");
+        b->setProperty("iconName", ic);
+        b->setCheckable(true);
+        b->setIconSize({20, 20});
+        b->setFixedSize(40, 40);
+        b->setCursor(Qt::PointingHandCursor);
+        b->setAccessibleName(ic);
+        icons->addButton(b);
+        iconButtons << b;
+        QObject::connect(b, &QToolButton::clicked, &d, [&, ic] {
+            chosenIcon = ic;
+            paintIcons();
+        });
+        iconGrid->addWidget(b, i / 9, i % 9);
+        ++i;
+    }
+    d.body()->addLayout(iconGrid);
+    d.body()->addSpacing(6);
+    d.body()->addWidget(label(QObject::tr("COLOUR"), "Eyebrow"));
+    auto *colorRow = new QHBoxLayout;
+    colorRow->setSpacing(8);
+    QVector<QToolButton *> swatches;
+    auto paintSwatches = [&] {
+        for (auto *b : swatches) {
+            const QString c = b->property("color").toString();
+            const bool on = c == chosenColor;
+            b->setStyleSheet(QString("QToolButton { background: %1; border-radius: 14px; border: %2; min-height: 28px; max-height: 28px; min-width: 28px; max-width: 28px; padding: 0; }")
+                                 .arg(folderColor(c).name(),
+                                      on ? QString("3px solid %1").arg(Theme::hex(Token::Text)) : QString("0")));
+        }
+    };
+    for (const QString &c : folderColors()) {
+        auto *b = new QToolButton;
+        b->setProperty("color", c);
+        b->setFixedSize(28, 28);
+        b->setCursor(Qt::PointingHandCursor);
+        b->setAccessibleName(QObject::tr("Colour %1").arg(c));
+        swatches << b;
+        QObject::connect(b, &QToolButton::clicked, &d, [&, c] {
+            chosenColor = c;
+            paintSwatches();
+            paintIcons();
+        });
+        colorRow->addWidget(b);
+    }
+    colorRow->addStretch();
+    d.body()->addLayout(colorRow);
+    auto *error = label({}, "ErrorText");
+    error->hide();
+    d.body()->addWidget(error);
+    paintIcons();
+    paintSwatches();
+
+    d.addButton(QObject::tr("Cancel"), nullptr, false);
+    auto *ok = d.addButton(isNew ? QObject::tr("Create folder") : QObject::tr("Save"), "Primary", true);
+    ok->setDefault(true);
+    const QString original = folder->name;
+    auto validate = [&] {
+        const QString n = name->text().trimmed();
+        bool clash = false;
+        for (const auto &t : taken)
+            clash |= t.compare(n, Qt::CaseInsensitive) == 0 && t.compare(original, Qt::CaseInsensitive) != 0;
+        error->setText(clash ? QObject::tr("There is already a folder with this name.") : QString());
+        error->setVisible(clash);
+        ok->setEnabled(!n.isEmpty() && !clash);
+    };
+    QObject::connect(name, &QLineEdit::textChanged, &d, validate);
+    validate();
+    name->setFocus();
+    name->selectAll();
+    if (d.run() != QDialog::Accepted)
+        return false;
+    folder->name = name->text().trimmed();
+    folder->icon = chosenIcon;
+    folder->color = chosenColor;
     return true;
 }
 

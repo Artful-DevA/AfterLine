@@ -187,6 +187,7 @@ void usage()
 {
     std::fputs("usage: afterline-summarizer --model FILE --transcript FILE --output FILE [--title T]\n"
                "       afterline-summarizer --model FILE --ask QUESTION --passages FILE --output FILE\n"
+               "       afterline-summarizer --model FILE --classify NOTES --folders FILE [--title T] --output FILE\n"
                "       [--threads N] [--ctx TOKENS] [--language CODE]\n", stderr);
 }
 
@@ -229,6 +230,31 @@ int runAsk(Model &model, const QString &question, const QString &passagesPath, c
     return 0;
 }
 
+int runClassify(Model &model, const QString &notesPath, const QString &foldersPath, const QString &title,
+                const QString &output)
+{
+    const QJsonObject notes = readJson(notesPath);
+    QStringList folders;
+    for (const auto v : readJson(foldersPath)["items"].toArray())
+        folders << v.toString();
+    QString error;
+    const QJsonObject raw = model.generate(notes::classifySystemPrompt(),
+                                           notes::classifyUserPrompt(notes, title, folders),
+                                           notes::classifyGrammar(folders), 120,
+                                           [](double f) { progress(f, "Choosing a folder"); }, &error);
+    if (g_abort) {
+        emitEvent({{"type", "cancelled"}});
+        return 3;
+    }
+    if (raw.isEmpty())
+        fail(error);
+    const QJsonObject result = notes::validateClassification(raw, folders);
+    if (!writeJsonFile(output, result, &error))
+        fail("Could not save the result: " + error);
+    emitEvent({{"type", "done"}});
+    return 0;
+}
+
 }  // namespace
 
 int main(int argc, char **argv)
@@ -237,7 +263,7 @@ int main(int argc, char **argv)
     installSignalHandlers();
     lowerPriority();
 
-    QString modelPath, transcriptPath, output, title, question, passagesPath, language;
+    QString modelPath, transcriptPath, output, title, question, passagesPath, language, classifyNotes, foldersPath;
     int threads = defaultThreads(), ctx = 8192;
     const QStringList args = app.arguments();
     for (int i = 1; i < args.size(); ++i) {
@@ -255,6 +281,8 @@ int main(int argc, char **argv)
         else if (a == "--title") title = next();
         else if (a == "--ask") question = next();
         else if (a == "--passages") passagesPath = next();
+        else if (a == "--classify") classifyNotes = next();
+        else if (a == "--folders") foldersPath = next();
         else if (a == "--language") language = next();
         else if (a == "--threads") threads = std::max(1, next().toInt());
         else if (a == "--ctx") ctx = std::max(2048, next().toInt());
@@ -264,7 +292,9 @@ int main(int argc, char **argv)
         } else { usage(); return 2; }
     }
     const bool ask = !question.isEmpty();
-    if (modelPath.isEmpty() || output.isEmpty() || (ask ? passagesPath.isEmpty() : transcriptPath.isEmpty())) {
+    const bool classify = !classifyNotes.isEmpty();
+    if (modelPath.isEmpty() || output.isEmpty() ||
+        (classify ? foldersPath.isEmpty() : ask ? passagesPath.isEmpty() : transcriptPath.isEmpty())) {
         usage();
         return 2;
     }
@@ -280,6 +310,8 @@ int main(int argc, char **argv)
 
     if (ask)
         return runAsk(model, question, passagesPath, output);
+    if (classify)
+        return runClassify(model, classifyNotes, foldersPath, title, output);
 
     const QJsonObject transcript = readJson(transcriptPath);
     const std::vector<notes::Line> lines = notes::loadTranscript(transcript);

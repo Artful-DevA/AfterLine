@@ -26,7 +26,7 @@ namespace afterline {
 class Processing : public QObject {
     Q_OBJECT
 public:
-    enum class Kind { Transcript, Notes, Ask };
+    enum class Kind { Transcript, Notes, Ask, Organize };
     Q_ENUM(Kind)
 
     Processing(MeetingStore &store, Settings &settings, QObject *parent = nullptr);
@@ -39,6 +39,11 @@ public:
     // answerReady(requestId, ...).
     bool ask(const QString &requestId, const QString &question, const QStringList &meetingIds,
              QString *error = nullptr);
+    // Files a meeting into one of the folders (or suggests a new one) from
+    // its notes. Returns false when it cannot run (no notes or no model).
+    bool organize(const QString &meetingId);
+    // Organizes every meeting with notes that has no folder; returns how many.
+    int organizeAll();
     void cancel(const QString &meetingId);
     void cancelAsk(const QString &requestId);
     // The passages an Ask request was answered from (citations index into it).
@@ -62,6 +67,8 @@ Q_SIGNALS:
     void finished(const QString &meetingId, afterline::Processing::Kind kind, bool ok, const QString &error);
     void answerReady(const QString &requestId, const QJsonObject &answer, const QString &error);
     void queueChanged();
+    // A meeting was filed into a folder, or a new folder was suggested for it.
+    void organized(const QString &meetingId, const QString &folder, const QString &suggestion);
 
 private:
     struct Job {

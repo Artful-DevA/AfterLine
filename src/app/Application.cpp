@@ -112,7 +112,7 @@ int Application::run(bool startHidden)
     });
     connect(m_ctx.processing, &Processing::finished, this,
             [this](const QString &id, Processing::Kind kind, bool ok, const QString &err) {
-                if (m_window && m_window->isActiveWindow())
+                if ((m_window && m_window->isActiveWindow()) || kind == Processing::Kind::Organize)
                     return;
                 const QString title = m_ctx.store->get(id).title;
                 if (!ok && err != tr("Cancelled."))

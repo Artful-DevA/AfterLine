@@ -10,6 +10,10 @@
 
 class QWidget;
 
+namespace afterline {
+struct FolderInfo;
+}
+
 namespace afterline::ui {
 
 enum class Tone { Neutral, Info, Warning, Danger };
@@ -22,6 +26,15 @@ void inform(QWidget *parent, const QString &title, const QString &text, Tone ton
             const QString &iconName = {});
 // Asks for a line of text. Returns false when cancelled.
 bool askText(QWidget *parent, const QString &title, const QString &text, QString *value,
-             const QString &placeholder = {}, const QString &confirmText = {});
+             const QString &placeholder = {}, const QString &confirmText = {}, bool allowEmpty = false);
+
+// Creates or edits a folder: name, icon and colour. Returns false when
+// cancelled. `taken`: names already used (case-insensitive).
+bool editFolder(QWidget *parent, FolderInfo *folder, bool isNew, const QStringList &taken);
+// Icons and colours a folder can have.
+const QStringList &folderIcons();
+const QStringList &folderColors();
+// The folder's colour, adjusted for the current theme.
+QColor folderColor(const QString &stored);
 
 }  // namespace afterline::ui

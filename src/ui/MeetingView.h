@@ -11,6 +11,7 @@
 #include <memory>
 
 class QLabel;
+class QMenu;
 class QLineEdit;
 class QProgressBar;
 class QPushButton;
@@ -57,7 +58,9 @@ private:
     void updatePlayer();
     void startTranscription();
     void startNotes();
-    void editDetails();
+    void editTags();
+    void fillFolderMenu(QMenu *menu);
+    void updateFolderNote();
     void onProgress(const QString &id, Processing::Kind kind, double fraction, const QString &stage);
 
     AppContext m_ctx;
@@ -65,6 +68,10 @@ private:
     std::unique_ptr<audio::Player> m_player;
     QLineEdit *m_title;
     QLabel *m_meta;
+    QPushButton *m_folderChip;
+    QWidget *m_folderNote;
+    QLabel *m_folderNoteText;
+    QPushButton *m_folderNoteYes, *m_folderNoteNo;
     QWidget *m_banner;
     QLabel *m_bannerText;
     QProgressBar *m_bannerProgress;

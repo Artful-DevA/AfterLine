@@ -63,4 +63,11 @@ void attachTimes(QJsonObject &notes, const std::vector<Line> &all);
 
 QJsonObject validateAnswer(const QJsonObject &raw, int passageCount);
 
+// Filing a meeting into one of the person's folders, from its notes.
+QString classifyGrammar(const QStringList &folders);
+QString classifySystemPrompt();
+QString classifyUserPrompt(const QJsonObject &notes, const QString &title, const QStringList &folders);
+// {"folder": one of folders or "", "confident": bool, "newFolder": short name or ""}
+QJsonObject validateClassification(const QJsonObject &raw, const QStringList &folders);
+
 }  // namespace notes

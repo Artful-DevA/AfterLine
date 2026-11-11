@@ -2,12 +2,19 @@
 #include "ui/LibraryView.h"
 
 #include "app/Processing.h"
+#include "app/Tasks.h"
 #include "core/Transcript.h"
+#include "ui/Dialogs.h"
 #include "ui/Icons.h"
 #include "ui/Theme.h"
 #include "ui/Widgets.h"
 
-#include <QComboBox>
+#include <QButtonGroup>
+#include <QContextMenuEvent>
+#include <QDragEnterEvent>
+#include <QMenu>
+#include <QMimeData>
+#include <QScrollArea>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
@@ -24,6 +31,8 @@
 namespace afterline::ui {
 
 namespace {
+
+const char *kMeetingMime = "application/x-afterline-meeting";
 
 QString dayGroup(const QDate &d)
 {
@@ -148,7 +157,19 @@ Qt::ItemFlags LibraryModel::flags(const QModelIndex &index) const
 {
     if (!index.isValid() || m_rows[index.row()].kind == Header)
         return Qt::ItemIsEnabled;
-    return Qt::ItemIsEnabled | Qt::ItemIsSelectable;
+    const Qt::ItemFlags f = Qt::ItemIsEnabled | Qt::ItemIsSelectable;
+    return m_rows[index.row()].kind == Meeting ? f | Qt::ItemIsDragEnabled : f;
+}
+
+QStringList LibraryModel::mimeTypes() const { return {kMeetingMime}; }
+
+QMimeData *LibraryModel::mimeData(const QModelIndexList &indexes) const
+{
+    if (indexes.isEmpty())
+        return nullptr;
+    auto *m = new QMimeData;
+    m->setData(kMeetingMime, indexes.first().data(MeetingIdRole).toString().toUtf8());
+    return m;
 }
 
 QVariant LibraryModel::data(const QModelIndex &index, int role) const
@@ -194,7 +215,7 @@ void LibraryModel::reload(const QString &filter)
     m_rows.clear();
     QString lastGroup;
     for (const auto &m : m_ctx.store->list()) {
-        if (filter.startsWith("folder:") && m.folder != filter.mid(7))
+        if (filter.startsWith("folder:") && m.folder.compare(filter.mid(7), Qt::CaseInsensitive) != 0)
             continue;
         if (filter.startsWith("tag:") && !m.tags.contains(filter.mid(4)))
             continue;
@@ -254,6 +275,90 @@ void LibraryModel::setLiveStatus(const QString &meetingId, const QString &status
 
 // ---------------------------------------------------------------------------
 
+NavButton::NavButton(const QString &key, const QString &text, const QString &iconName, const QColor &tint,
+                     QWidget *parent)
+    : QAbstractButton(parent), m_key(key), m_icon(iconName), m_tint(tint)
+{
+    setText(text);
+    setCheckable(true);
+    setCursor(Qt::PointingHandCursor);
+    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    setFixedHeight(34);
+    setAccessibleName(text);
+    setFocusPolicy(Qt::TabFocus);
+}
+
+void NavButton::paintEvent(QPaintEvent *)
+{
+    QPainter p(this);
+    p.setRenderHint(QPainter::Antialiasing);
+    const QRectF r = QRectF(rect()).adjusted(0.5, 1, -0.5, -1);
+    if (m_dropping) {
+        p.setPen(QPen(m_tint, 1.5));
+        QColor fill = m_tint;
+        fill.setAlpha(40);
+        p.setBrush(fill);
+        p.drawRoundedRect(r, 8, 8);
+    } else if (isChecked()) {
+        p.setPen(QPen(Theme::color(Token::Border), 1));
+        p.setBrush(Theme::color(Token::Surface));
+        p.drawRoundedRect(r, 8, 8);
+    } else if (m_hover || hasFocus()) {
+        QColor h = Theme::color(Token::Text);
+        h.setAlpha(14);
+        p.setPen(Qt::NoPen);
+        p.setBrush(h);
+        p.drawRoundedRect(r, 8, 8);
+    }
+    // Tinted icon tile.
+    const QRectF tile(8, (height() - 24) / 2.0, 24, 24);
+    QColor soft = m_tint;
+    soft.setAlpha(Theme::isDark() ? 60 : 38);
+    p.setPen(Qt::NoPen);
+    p.setBrush(soft);
+    p.drawRoundedRect(tile, 7, 7);
+    ui::icon(m_icon, m_tint).paint(&p, tile.adjusted(4, 4, -4, -4).toRect());
+    QFont f = font();
+    if (isChecked())
+        f.setWeight(QFont::DemiBold);
+    p.setFont(f);
+    const QFontMetrics fm(f);
+    int right = width() - 10;
+    if (!m_count.isEmpty()) {
+        p.setPen(Theme::color(Token::Muted));
+        const int w = fm.horizontalAdvance(m_count);
+        p.drawText(QRect(right - w, 0, w, height()), Qt::AlignVCenter, m_count);
+        right -= w + 10;
+    }
+    p.setPen(Theme::color(Token::Text));
+    p.drawText(QRect(42, 0, right - 42, height()), Qt::AlignVCenter | Qt::AlignLeft,
+               fm.elidedText(text(), Qt::ElideRight, right - 42));
+}
+
+void NavButton::dragEnterEvent(QDragEnterEvent *e)
+{
+    if (e->mimeData()->hasFormat(kMeetingMime)) {
+        e->acceptProposedAction();
+        m_dropping = true;
+        update();
+    }
+}
+
+void NavButton::dropEvent(QDropEvent *e)
+{
+    m_dropping = false;
+    update();
+    const QString id = QString::fromUtf8(e->mimeData()->data(kMeetingMime));
+    if (!id.isEmpty()) {
+        e->acceptProposedAction();
+        Q_EMIT meetingDropped(id);
+    }
+}
+
+void NavButton::contextMenuEvent(QContextMenuEvent *e) { Q_EMIT contextMenuWanted(e->globalPos()); }
+
+// ---------------------------------------------------------------------------
+
 LibraryView::LibraryView(AppContext ctx, QWidget *parent) : QWidget(parent), m_ctx(ctx)
 {
     setObjectName("Sidebar");
@@ -288,9 +393,20 @@ LibraryView::LibraryView(AppContext ctx, QWidget *parent) : QWidget(parent), m_c
     m_search->setClearButtonEnabled(true);
     v->addWidget(m_search);
 
-    m_filter = new QComboBox;
-    m_filter->setAccessibleName(tr("Show"));
-    v->addWidget(m_filter);
+    // Navigation: everything, your tasks, folders and tags.
+    auto *navWidget = new QWidget;
+    m_navLayout = new QVBoxLayout(navWidget);
+    m_navLayout->setContentsMargins(0, 0, 0, 0);
+    m_navLayout->setSpacing(1);
+    m_navScroll = new QScrollArea;
+    m_navScroll->setWidget(navWidget);
+    m_navScroll->setWidgetResizable(true);
+    m_navScroll->setFrameShape(QFrame::NoFrame);
+    m_navScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_navScroll->setStyleSheet("QScrollArea, QScrollArea > QWidget > QWidget { background: transparent; }");
+    m_navGroup = new QButtonGroup(this);
+    m_navGroup->setExclusive(true);
+    v->addWidget(m_navScroll);
 
     m_model = new LibraryModel(ctx, this);
     m_list = new QListView;
@@ -301,6 +417,10 @@ LibraryView::LibraryView(AppContext ctx, QWidget *parent) : QWidget(parent), m_c
     m_list->setUniformItemSizes(false);
     m_list->setAccessibleName(tr("Meetings"));
     m_list->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_list->setDragEnabled(true);
+    m_list->setDragDropMode(QAbstractItemView::DragOnly);
+    m_list->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(m_list, &QListView::customContextMenuRequested, this, &LibraryView::meetingMenu);
     v->addWidget(m_list, 1);
 
     m_download = new QWidget;
@@ -319,7 +439,6 @@ LibraryView::LibraryView(AppContext ctx, QWidget *parent) : QWidget(parent), m_c
     debounce->setInterval(250);
     connect(m_search, &QLineEdit::textChanged, debounce, qOverload<>(&QTimer::start));
     connect(debounce, &QTimer::timeout, this, &LibraryView::refresh);
-    connect(m_filter, &QComboBox::currentIndexChanged, this, &LibraryView::refresh);
     connect(m_list->selectionModel(), &QItemSelectionModel::currentChanged, this, [this](const QModelIndex &idx) {
         if (!idx.isValid() || idx.data(LibraryModel::KindRole).toInt() == LibraryModel::Header)
             return;
@@ -338,17 +457,188 @@ LibraryView::LibraryView(AppContext ctx, QWidget *parent) : QWidget(parent), m_c
 
 void LibraryView::reloadFilters()
 {
-    const QString current = m_filter->currentData().toString();
-    QSignalBlocker block(m_filter);
-    m_filter->clear();
-    m_filter->addItem(icon("notes"), tr("All meetings"), QString());
-    for (const auto &f : m_ctx.store->allFolders())
-        m_filter->addItem(icon("folder"), f, "folder:" + f);
-    for (const auto &t : m_ctx.store->allTags())
-        m_filter->addItem(icon("tag"), t, "tag:" + t);
-    const int i = m_filter->findData(current);
-    m_filter->setCurrentIndex(i >= 0 ? i : 0);
-    m_filter->setVisible(m_filter->count() > 1);
+    // Rebuilt on every refresh: counts change and folders come and go.
+    for (auto *b : m_navGroup->buttons()) {
+        m_navGroup->removeButton(b);
+        b->deleteLater();
+    }
+    while (QLayoutItem *item = m_navLayout->takeAt(0)) {
+        if (item->widget())
+            item->widget()->deleteLater();
+        delete item;
+    }
+    const auto meetings = m_ctx.store->list();
+    const QColor accent = Theme::color(Token::Accent);
+    auto addNav = [&](const QString &key, const QString &text, const QString &iconName, const QColor &tint,
+                      const QString &count) {
+        auto *b = new NavButton(key, text, iconName, tint);
+        b->setCount(count);
+        b->setChecked(key == m_section);
+        m_navGroup->addButton(b);
+        m_navLayout->addWidget(b);
+        connect(b, &NavButton::clicked, this, [this, key] { showSection(key); });
+        return b;
+    };
+    addNav({}, tr("All meetings"), "inbox", Theme::color(Token::Muted), QString::number(meetings.size()));
+    int open = 0;
+    for (const auto &t : collectTasks(*m_ctx.store, true))
+        open += !t.done;
+    addNav("tasks", tr("My tasks"), "tasks", Theme::color(Token::Success), open ? QString::number(open) : QString());
+
+    auto *head = new QWidget;
+    auto *hh = new QHBoxLayout(head);
+    hh->setContentsMargins(10, 10, 0, 2);
+    hh->addWidget(label(tr("FOLDERS"), "Eyebrow"), 1);
+    auto *organize = iconButton("sparkles", tr("Organize meetings into folders with AI"));
+    organize->setFixedSize(26, 26);
+    organize->setIconSize({16, 16});
+    connect(organize, &QPushButton::clicked, this, &LibraryView::organizeRequested);
+    hh->addWidget(organize);
+    auto *add = iconButton("plus", tr("New folder"));
+    add->setFixedSize(26, 26);
+    add->setIconSize({16, 16});
+    connect(add, &QPushButton::clicked, this, [this] { newFolder(); });
+    hh->addWidget(add);
+    m_navLayout->addWidget(head);
+
+    const auto folders = m_ctx.store->folders();
+    if (folders.isEmpty()) {
+        auto *hint = label(tr("Create folders, then drag meetings onto them, or let AfterLine file them for you."),
+                           "Muted");
+        hint->setContentsMargins(10, 0, 6, 4);
+        m_navLayout->addWidget(hint);
+    }
+    for (const auto &f : folders) {
+        int n = 0;
+        for (const auto &m : meetings)
+            n += m.folder.compare(f.name, Qt::CaseInsensitive) == 0;
+        auto *b = addNav("folder:" + f.name, f.name, f.icon, folderColor(f.color), n ? QString::number(n) : QString());
+        b->setAcceptsMeetings(true);
+        b->setToolTip(tr("Drop a meeting here to move it into “%1”").arg(f.name));
+        const QString name = f.name;
+        connect(b, &NavButton::meetingDropped, this, [this, name](const QString &id) {
+            m_ctx.store->setFolder(id, name);
+            refresh();
+            Q_EMIT foldersChanged();
+        });
+        connect(b, &NavButton::contextMenuWanted, this, [this, name](const QPoint &pos) { folderMenu(name, pos); });
+    }
+    const QStringList tags = m_ctx.store->allTags();
+    if (!tags.isEmpty()) {
+        auto *th = label(tr("TAGS"), "Eyebrow");
+        th->setContentsMargins(10, 10, 0, 2);
+        m_navLayout->addWidget(th);
+        for (const auto &t : tags)
+            addNav("tag:" + t, t, "tag", Theme::color(Token::Muted), {});
+    }
+    // The navigation takes what it needs, up to about half the sidebar.
+    navHeightChanged();
+    Q_UNUSED(accent);
+}
+
+void LibraryView::navHeightChanged()
+{
+    int h = 0;
+    for (int i = 0; i < m_navLayout->count(); ++i)
+        if (QWidget *w = m_navLayout->itemAt(i)->widget())
+            h += w->sizeHint().height() + m_navLayout->spacing();
+    m_navScroll->setFixedHeight(std::min(h + 4, std::max(160, height() / 2 - 60)));
+}
+
+void LibraryView::resizeEvent(QResizeEvent *e)
+{
+    QWidget::resizeEvent(e);
+    navHeightChanged();
+}
+
+void LibraryView::showSection(const QString &key)
+{
+    if (key == "tasks") {
+        Q_EMIT tasksClicked();
+        m_section = key;
+        for (auto *b : m_navGroup->buttons())
+            b->setChecked(static_cast<NavButton *>(b)->key() == key);
+        return;
+    }
+    m_section = key;
+    m_search->clear();
+    refresh();
+}
+
+void LibraryView::newFolder(const QString &moveMeetingId)
+{
+    FolderInfo f;
+    QStringList taken;
+    for (const auto &e : m_ctx.store->folders())
+        taken << e.name;
+    if (!editFolder(this, &f, true, taken))
+        return;
+    m_ctx.store->saveFolder(f);
+    if (!moveMeetingId.isEmpty())
+        m_ctx.store->setFolder(moveMeetingId, f.name);
+    refresh();
+    Q_EMIT foldersChanged();
+}
+
+void LibraryView::folderMenu(const QString &name, const QPoint &globalPos)
+{
+    QMenu menu(this);
+    menu.addAction(icon("edit"), tr("Edit name, icon and colour…"), this, [this, name] {
+        FolderInfo f = m_ctx.store->folder(name);
+        QStringList taken;
+        for (const auto &e : m_ctx.store->folders())
+            taken << e.name;
+        if (!editFolder(this, &f, false, taken))
+            return;
+        m_ctx.store->saveFolder(f, name);
+        if (m_section == "folder:" + name)
+            m_section = "folder:" + f.name;
+        refresh();
+        Q_EMIT foldersChanged();
+    });
+    menu.addSeparator();
+    menu.addAction(icon("trash", Theme::color(Token::Danger)), tr("Delete folder"), this, [this, name] {
+        if (!confirm(this, tr("Delete the folder “%1”?").arg(name),
+                     tr("Only the folder is deleted. Its meetings stay in your library, under All meetings."),
+                     tr("Delete folder"), Tone::Danger, "folder"))
+            return;
+        m_ctx.store->removeFolder(name);
+        if (m_section == "folder:" + name)
+            m_section.clear();
+        refresh();
+        Q_EMIT foldersChanged();
+    });
+    menu.exec(globalPos);
+}
+
+void LibraryView::meetingMenu(const QPoint &pos)
+{
+    const QModelIndex idx = m_list->indexAt(pos);
+    if (!idx.isValid() || idx.data(LibraryModel::KindRole).toInt() != LibraryModel::Meeting)
+        return;
+    const QString id = idx.data(LibraryModel::MeetingIdRole).toString();
+    const MeetingInfo m = m_ctx.store->get(id);
+    QMenu menu(this);
+    QMenu *move = menu.addMenu(icon("folder"), tr("Move to folder"));
+    for (const auto &f : m_ctx.store->folders()) {
+        QAction *a = move->addAction(icon(f.icon, folderColor(f.color)), f.name, this, [this, id, name = f.name] {
+            m_ctx.store->setFolder(id, name);
+            refresh();
+            Q_EMIT foldersChanged();
+        });
+        a->setCheckable(true);
+        a->setChecked(m.folder.compare(f.name, Qt::CaseInsensitive) == 0);
+    }
+    if (!m_ctx.store->folders().isEmpty())
+        move->addSeparator();
+    move->addAction(icon("plus"), tr("New folder…"), this, [this, id] { newFolder(id); });
+    if (!m.folder.isEmpty())
+        menu.addAction(icon("close"), tr("Remove from “%1”").arg(m.folder), this, [this, id] {
+            m_ctx.store->setFolder(id, {});
+            refresh();
+            Q_EMIT foldersChanged();
+        });
+    menu.exec(m_list->viewport()->mapToGlobal(pos));
 }
 
 void LibraryView::refresh()
@@ -356,7 +646,7 @@ void LibraryView::refresh()
     const QString q = m_search->text().trimmed();
     reloadFilters();
     if (q.isEmpty())
-        m_model->reload(m_filter->currentData().toString());
+        m_model->reload(m_section == "tasks" ? QString() : m_section);
     else
         m_model->showSearch(q);
     if (q.isEmpty() && !m_selected.isEmpty())

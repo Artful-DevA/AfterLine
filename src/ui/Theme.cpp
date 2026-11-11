@@ -176,6 +176,16 @@ QToolButton::menu-indicator, QPushButton::menu-indicator { image: none; width: 0
 #SendButton { background: @accent; border: 0; border-radius: 9px; min-height: 34px; min-width: 34px; max-width: 34px; padding: 0; }
 #SendButton:hover { background: @accentHover; }
 #SendButton:disabled { background: @border; }
+#IconChoice { background: transparent; border: 1px solid transparent; border-radius: 10px; min-height: 40px; max-height: 40px; min-width: 40px; max-width: 40px; padding: 0; }
+#IconChoice:hover { background: @hoverBg; }
+#IconChoice:checked { background: @background; border: 1px solid @borderStrong; }
+#TaskRow { background: @surface; border: 1px solid @border; border-radius: 12px; }
+#TaskRow[hover="true"] { border-color: @borderStrong; }
+#FolderChip { background: @surface; border: 1px solid @border; border-radius: 12px; padding: 0 10px; min-height: 24px;
+  font-size: 9.5pt; font-weight: 600; }
+#FolderChip:hover { border-color: @borderStrong; }
+#FolderNote { background: @accentSoftTrans; border-radius: 10px; }
+#SmallButton { min-height: 28px; padding: 0 12px; border-radius: 8px; }
 #DialogCard { background: @surface; border: 1px solid @border; border-radius: 16px; }
 #DialogTitle { font-size: 13.5pt; font-weight: 650; }
 #DangerButton { background: @danger; color: #FFFFFF; border: 0; font-weight: 650; padding: 0 18px; min-height: 36px; }

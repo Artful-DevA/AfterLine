@@ -59,7 +59,7 @@ bool Processing::isQueuedOrRunning(const QString &meetingId) const
 
 void Processing::setState(const QString &meetingId, Kind kind, const QString &state, const QString &error)
 {
-    if (kind == Kind::Ask)
+    if (kind == Kind::Ask || kind == Kind::Organize)
         return;
     MeetingInfo m = m_store.get(meetingId);
     if (!m.isValid())
@@ -246,6 +246,50 @@ bool Processing::ask(const QString &requestId, const QString &question, const QS
     return true;
 }
 
+bool Processing::organize(const QString &meetingId)
+{
+    const MeetingInfo m = m_store.get(meetingId);
+    const ModelSpec *model = findModel(m_settings.notesModel());
+    if (!m.isValid() || !QFile::exists(m.path("notes.json")) || !model || !model->installed() ||
+        !engineAvailable(Kind::Notes))
+        return false;
+    for (const auto &j : m_queue)
+        if (j.kind == Kind::Organize && j.meetingId == meetingId)
+            return true;
+    Job job;
+    job.kind = Kind::Organize;
+    job.meetingId = meetingId;
+    auto *tmp = new QTemporaryDir(QDir::tempPath() + "/afterline-organize-XXXXXX");
+    job.tempDir = tmp->path();
+    tmp->setAutoRemove(false);
+    delete tmp;
+    QStringList names;
+    for (const auto &f : m_store.folders())
+        names << f.name;
+    QFile f(job.tempDir + "/folders.json");
+    if (f.open(QIODevice::WriteOnly))
+        f.write(QJsonDocument(QJsonArray::fromStringList(names)).toJson());
+    f.close();
+    job.output = job.tempDir + "/folder.json";
+    job.args << "--model" << model->path() << "--classify" << m.path("notes.json") << "--folders" << f.fileName()
+             << "--title" << m.title << "--output" << job.output << "--ctx" << "4096";
+    if (threads() > 0)
+        job.args << "--threads" << QString::number(threads());
+    m_queue.enqueue(job);
+    Q_EMIT queueChanged();
+    startNext();
+    return true;
+}
+
+int Processing::organizeAll()
+{
+    int n = 0;
+    for (const auto &m : m_store.list())
+        if (m.folder.isEmpty() && m.state != "recording" && QFile::exists(m.path("notes.json")) && organize(m.id))
+            ++n;
+    return n;
+}
+
 QJsonArray Processing::passagesOf(const QString &requestId) const { return m_lastPassages.value(requestId); }
 
 void Processing::enqueue(const Job &job)
@@ -341,6 +385,26 @@ void Processing::onExit(int code, QProcess::ExitStatus status)
             error = tr("Processing failed (code %1).").arg(code);
     }
 
+    if (job.kind == Kind::Organize) {
+        const QJsonObject r = ok ? readJsonFile(job.output) : QJsonObject();
+        QDir(job.tempDir).removeRecursively();
+        MeetingInfo m = m_store.get(job.meetingId);
+        // Only into an existing folder, only when the match is clear, and
+        // never over a folder the person chose meanwhile.
+        if (ok && m.isValid() && m.folder.isEmpty()) {
+            if (r["confident"].toBool() && !r["folder"].toString().isEmpty()) {
+                m_store.setFolder(m.id, r["folder"].toString(), true);
+                Q_EMIT organized(m.id, r["folder"].toString(), {});
+            } else if (!r["newFolder"].toString().isEmpty()) {
+                m.folderSuggestion = r["newFolder"].toString();
+                m_store.save(m);
+                Q_EMIT organized(m.id, {}, m.folderSuggestion);
+            }
+        }
+        Q_EMIT queueChanged();
+        startNext();
+        return;
+    }
     if (job.kind == Kind::Ask) {
         QJsonObject answer;
         if (ok)
@@ -363,6 +427,9 @@ void Processing::onExit(int code, QProcess::ExitStatus status)
                     m.title = n.title();
                     m_store.save(m);
                 }
+                // File the meeting into a folder (or suggest one).
+                if (m.folder.isEmpty() && m_settings.autoOrganize())
+                    QTimer::singleShot(0, this, [this, id = job.meetingId] { organize(id); });
             }
             m_store.reindex(job.meetingId);
         }

@@ -95,6 +95,7 @@ if(AFTERLINE_BUILD_GUI)
     src/ui/Icons.cpp
     src/ui/Widgets.cpp
     src/ui/Dialogs.cpp
+    src/ui/TasksView.cpp
     src/ui/MainWindow.cpp
     src/ui/LibraryView.cpp
     src/ui/RecordView.cpp

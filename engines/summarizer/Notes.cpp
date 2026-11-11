@@ -255,6 +255,70 @@ QString overviewUserPrompt(const QString &title, const QStringList &sectionSumma
     return text + "\nWrite the title and summary as JSON.";
 }
 
+QString classifyGrammar(const QStringList &folders)
+{
+    auto literal = [](QString s) {
+        s.replace("\\", "\\\\");
+        s.replace("\"", "\\\"");
+        // A JSON string inside a GBNF literal: quotes are escaped twice.
+        return QString("\"\\\"%1\\\"\"").arg(s);
+    };
+    QStringList options{literal("none")};
+    for (const auto &f : folders)
+        options << literal(f);
+    return QString(R"(root ::= "{" ws "\"folder\":" ws folder "," ws "\"confidence\":" ws ("\"high\"" | "\"low\"") "," ws "\"new_folder\":" ws string ws "}")"
+                   "\nfolder ::= ") +
+           options.join(" | ") + "\n" + kCommonRules;
+}
+
+QString classifySystemPrompt()
+{
+    return "You organise a person's recorded meetings into their folders. Given a meeting's title and notes and the "
+           "list of folders, choose the one folder the meeting clearly belongs in, judging by the folder names "
+           "(for example a client name, a project, a class or a team). Say confidence high only when the match is "
+           "obvious; otherwise low. Whenever the match is not obvious, also suggest a short new folder name in "
+           "new_folder (one to three words naming the project, client, team or subject; never a date or the word "
+           "meeting); when the match is obvious, leave new_folder empty.";
+}
+
+QString classifyUserPrompt(const QJsonObject &notes, const QString &title, const QStringList &folders)
+{
+    QString text = "Folders: " + (folders.isEmpty() ? QString("(none yet)") : folders.join(", ")) + "\n\n";
+    text += "Meeting title: " + title + "\n";
+    text += "Summary: " + notes["summary"].toString() + "\n";
+    int n = 0;
+    for (const char *key : {"key_points", "decisions", "action_items"})
+        for (const auto v : notes[key].toArray()) {
+            if (n++ >= 12)
+                break;
+            const QJsonObject o = v.toObject();
+            text += "- " + (o.contains("task") ? o["task"].toString() : o["text"].toString()) + "\n";
+        }
+    return text + "\nAnswer as JSON.";
+}
+
+QJsonObject validateClassification(const QJsonObject &raw, const QStringList &folders)
+{
+    QString folder;
+    for (const auto &f : folders)
+        if (f.compare(raw["folder"].toString(), Qt::CaseInsensitive) == 0)
+            folder = f;
+    QString suggestion = raw["new_folder"].toString().simplified();
+    suggestion.remove(QRegularExpression(R"([\"'`*#\[\]{}<>/\\|])"));
+    const bool tooLong = suggestion.size() > 28 || suggestion.split(' ', Qt::SkipEmptyParts).size() > 3;
+    const bool looksLikeDate = suggestion.contains(QRegularExpression(R"(\d{1,2}[./ -]\d{1,2}|\b(19|20)\d\d\b)"));
+    for (const auto &f : folders)
+        if (f.compare(suggestion, Qt::CaseInsensitive) == 0)
+            suggestion.clear();
+    const bool confident = raw["confidence"].toString() == "high";
+    if ((!folder.isEmpty() && confident) || tooLong || looksLikeDate ||
+        suggestion.compare("none", Qt::CaseInsensitive) == 0)
+        suggestion.clear();
+    if (!suggestion.isEmpty())
+        suggestion[0] = suggestion[0].toUpper();
+    return {{"folder", folder}, {"confident", confident && !folder.isEmpty()}, {"newFolder", suggestion}};
+}
+
 QString askSystemPrompt()
 {
     return "You answer questions about the user's recorded meetings using only the numbered passages provided. "

@@ -244,8 +244,9 @@ void AskPanel::answerTasks(const QString &, const QStringList &scope)
                                          "appear here and in <b>My tasks</b>."));
         return;
     }
-    QString html = oneMeeting ? tr("Action items from this meeting:") : tr("You have %n open task(s):", nullptr,
-                                                                                int(tasks.size()));
+    QString html = oneMeeting           ? tr("Action items from this meeting:")
+                   : tasks.size() == 1 ? tr("You have 1 open task:")
+                                       : tr("You have %1 open tasks:").arg(tasks.size());
     html += "<ul style='margin-left:-20px'>";
     QVector<Source> sources;
     const QString muted = Theme::hex(Token::Muted);

@@ -28,6 +28,10 @@ public:
     void setThreads(int n);
     QString theme() const;    // system | light | dark
     void setTheme(const QString &t);
+    bool autoOrganize() const;  // file new meetings into folders with AI
+    void setAutoOrganize(bool on);
+    bool suggestRecording() const;  // offer to record when a call starts
+    void setSuggestRecording(bool on);
     bool liveTranscript() const;  // preliminary transcript while recording
     void setLiveTranscript(bool on);
     bool closeToTray() const;

@@ -18,6 +18,7 @@
 #include <QRegularExpression>
 #include <QSet>
 
+#include <algorithm>
 #include <cmath>
 
 namespace afterline {
@@ -93,6 +94,8 @@ QJsonObject MeetingInfo::toJson() const
             {"language", language},
             {"tags", QJsonArray::fromStringList(tags)},
             {"folder", folder},
+            {"folderAuto", folderAuto},
+            {"folderSuggestion", folderSuggestion},
             {"transcriptState", transcriptState},
             {"notesState", notesState},
             {"lastError", lastError},
@@ -117,6 +120,8 @@ MeetingInfo MeetingInfo::fromJson(const QJsonObject &o, const QString &dir)
     for (const auto v : o["tags"].toArray())
         m.tags << v.toString();
     m.folder = o["folder"].toString();
+    m.folderAuto = o["folderAuto"].toBool();
+    m.folderSuggestion = o["folderSuggestion"].toString();
     m.transcriptState = o["transcriptState"].toString();
     m.notesState = o["notesState"].toString();
     m.lastError = o["lastError"].toString();
@@ -465,6 +470,108 @@ QStringList MeetingStore::allTags() const
     tags.removeDuplicates();
     tags.sort(Qt::CaseInsensitive);
     return tags;
+}
+
+QVector<FolderInfo> MeetingStore::folders() const
+{
+    QVector<FolderInfo> out;
+    QSet<QString> seen;
+    for (const auto v : readJsonFile(m_root + "/folders.json")["folders"].toArray()) {
+        const QJsonObject o = v.toObject();
+        FolderInfo f{o["name"].toString(), o["icon"].toString("folder"), o["color"].toString()};
+        if (!f.name.isEmpty() && !seen.contains(f.name.toLower())) {
+            seen.insert(f.name.toLower());
+            out << f;
+        }
+    }
+    for (const auto &m : list())
+        if (!m.folder.isEmpty() && !seen.contains(m.folder.toLower())) {
+            seen.insert(m.folder.toLower());
+            out << FolderInfo{m.folder, "folder", {}};
+        }
+    std::sort(out.begin(), out.end(), [](const FolderInfo &a, const FolderInfo &b) {
+        return QString::localeAwareCompare(a.name.toLower(), b.name.toLower()) < 0;
+    });
+    return out;
+}
+
+FolderInfo MeetingStore::folder(const QString &name) const
+{
+    for (const auto &f : folders())
+        if (f.name.compare(name, Qt::CaseInsensitive) == 0)
+            return f;
+    return FolderInfo{name, "folder", {}};
+}
+
+namespace {
+void writeFolders(const QString &root, const QVector<FolderInfo> &folders)
+{
+    QJsonArray arr;
+    for (const auto &f : folders)
+        arr.append(QJsonObject{{"name", f.name}, {"icon", f.icon}, {"color", f.color}});
+    writeJsonFile(root + "/folders.json", QJsonObject{{"version", 1}, {"folders", arr}});
+}
+}  // namespace
+
+bool MeetingStore::saveFolder(const FolderInfo &folder, const QString &oldName)
+{
+    const QString name = folder.name.trimmed();
+    if (name.isEmpty())
+        return false;
+    QVector<FolderInfo> all = folders();
+    const QString key = (oldName.isEmpty() ? name : oldName).toLower();
+    bool found = false;
+    for (auto &f : all)
+        if (f.name.toLower() == key) {
+            f = folder;
+            f.name = name;
+            found = true;
+        }
+    if (!found)
+        all << FolderInfo{name, folder.icon, folder.color};
+    writeFolders(m_root, all);
+    if (!oldName.isEmpty() && oldName != name)
+        for (auto m : list())
+            if (m.folder.compare(oldName, Qt::CaseInsensitive) == 0) {
+                m.folder = name;
+                save(m);
+            }
+    return true;
+}
+
+void MeetingStore::removeFolder(const QString &name)
+{
+    QVector<FolderInfo> all = folders();
+    all.erase(std::remove_if(all.begin(), all.end(),
+                             [&](const FolderInfo &f) { return f.name.compare(name, Qt::CaseInsensitive) == 0; }),
+              all.end());
+    writeFolders(m_root, all);
+    for (auto m : list())
+        if (m.folder.compare(name, Qt::CaseInsensitive) == 0) {
+            m.folder.clear();
+            m.folderAuto = false;
+            save(m);
+        }
+}
+
+void MeetingStore::setFolder(const QString &meetingId, const QString &folder, bool automatic)
+{
+    MeetingInfo m = get(meetingId);
+    if (!m.isValid())
+        return;
+    m.folder = folder;
+    m.folderAuto = automatic && !folder.isEmpty();
+    if (!folder.isEmpty())
+        m.folderSuggestion.clear();
+    save(m);
+    if (!folder.isEmpty() && !folders().isEmpty()) {
+        // Make sure a folder created by moving a meeting is remembered.
+        bool known = false;
+        for (const auto v : readJsonFile(m_root + "/folders.json")["folders"].toArray())
+            known |= v.toObject()["name"].toString().compare(folder, Qt::CaseInsensitive) == 0;
+        if (!known)
+            saveFolder(FolderInfo{folder, "folder", {}});
+    }
 }
 
 QStringList MeetingStore::allFolders() const

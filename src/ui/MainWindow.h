@@ -13,6 +13,7 @@ class LibraryView;
 class MeetingView;
 class RecordView;
 class SettingsView;
+class TasksView;
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -22,6 +23,7 @@ public:
     void showMeeting(const QString &id, double seekTo = -1);
     void showSettings();
     void showHome();
+    void showTasks();
     void bringToFront();
     // True: really quit (the user confirmed or nothing is recording).
     bool confirmQuit();
@@ -44,6 +46,7 @@ private:
     RecordView *m_record;
     MeetingView *m_meeting;
     SettingsView *m_settings;
+    TasksView *m_tasks;
     QWidget *m_previous = nullptr;
     bool m_quitting = false;
 };

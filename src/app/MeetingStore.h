@@ -39,6 +39,8 @@ struct MeetingInfo {
     QString language;
     QStringList tags;
     QString folder;
+    bool folderAuto = false;      // filed by AfterLine (can be undone)
+    QString folderSuggestion;     // a new folder AfterLine suggests for it
     // Processing: "" (not started), "queued", "running", "done", "failed", "cancelled"
     QString transcriptState;
     QString notesState;
@@ -57,6 +59,13 @@ struct MeetingInfo {
     bool notesEdited() const;
     QJsonObject toJson() const;
     static MeetingInfo fromJson(const QJsonObject &o, const QString &dir);
+};
+
+// A folder in the library: a name, an icon and a colour the person chose.
+struct FolderInfo {
+    QString name;
+    QString icon = "folder";
+    QString color;  // "#RRGGBB", empty: the accent colour
 };
 
 struct SearchHit {
@@ -94,6 +103,16 @@ public:
     QVector<SearchHit> passagesFor(const QString &question, int limit, const QStringList &meetingIds = {}) const;
     QStringList allTags() const;
     QStringList allFolders() const;
+    // Folders with their icon and colour (folders.json in the library, plus
+    // any folder a meeting names), sorted by name.
+    QVector<FolderInfo> folders() const;
+    FolderInfo folder(const QString &name) const;
+    // Creates or updates a folder; with a different oldName, renames it and
+    // moves its meetings along.
+    bool saveFolder(const FolderInfo &folder, const QString &oldName = {});
+    // Deletes a folder; its meetings stay in the library, without a folder.
+    void removeFolder(const QString &name);
+    void setFolder(const QString &meetingId, const QString &folder, bool automatic = false);
 
     // Meetings left in "recording" state by a crash or power loss, whose
     // recorder is no longer running. Their audio (written continuously) is

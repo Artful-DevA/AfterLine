@@ -25,7 +25,6 @@
 #include <QFileDialog>
 #include <QFile>
 #include <QHBoxLayout>
-#include <QInputDialog>
 #include <QLabel>
 #include <QLineEdit>
 #include <QLocale>
@@ -75,7 +74,9 @@ MeetingView::MeetingView(AppContext ctx, QWidget *parent) : QWidget(parent), m_c
     head->addWidget(exportBtn);
     auto *more = iconButton("more", tr("More actions"));
     auto *menu = new QMenu(more);
-    menu->addAction(icon("tag"), tr("Tags and folder…"), this, &MeetingView::editDetails);
+    QMenu *folderMenu = menu->addMenu(icon("folder"), tr("Move to folder"));
+    connect(folderMenu, &QMenu::aboutToShow, this, [this, folderMenu] { fillFolderMenu(folderMenu); });
+    menu->addAction(icon("tag"), tr("Edit tags…"), this, &MeetingView::editTags);
     menu->addSeparator();
     menu->addAction(icon("transcript"), tr("Transcribe again"), this, [this] {
         if (m_meeting.hasTranscript() &&
@@ -105,8 +106,40 @@ MeetingView::MeetingView(AppContext ctx, QWidget *parent) : QWidget(parent), m_c
     connect(more, &QPushButton::clicked, more, &QPushButton::showMenu);
     head->addWidget(more);
     v->addLayout(head);
+    auto *metaRow = new QHBoxLayout;
+    metaRow->setSpacing(10);
+    m_folderChip = new QPushButton;
+    m_folderChip->setObjectName("FolderChip");
+    m_folderChip->setCursor(Qt::PointingHandCursor);
+    m_folderChip->setToolTip(tr("Move to another folder"));
+    auto *chipMenu = new QMenu(m_folderChip);
+    connect(chipMenu, &QMenu::aboutToShow, this, [this, chipMenu] { fillFolderMenu(chipMenu); });
+    m_folderChip->setMenu(chipMenu);
+    metaRow->addWidget(m_folderChip);
     m_meta = label({}, "Muted");
-    v->addWidget(m_meta);
+    metaRow->addWidget(m_meta, 1);
+    v->addLayout(metaRow);
+
+    // "Filed in Work by AfterLine · Undo", or a suggested new folder.
+    m_folderNote = new QWidget;
+    m_folderNote->setObjectName("FolderNote");
+    m_folderNote->setAttribute(Qt::WA_StyledBackground);
+    auto *fl = new QHBoxLayout(m_folderNote);
+    fl->setContentsMargins(12, 6, 6, 6);
+    auto *spark = new QLabel;
+    spark->setPixmap(icon("sparkles", Theme::color(Token::Accent)).pixmap(16, 16));
+    fl->addWidget(spark);
+    m_folderNoteText = label({});
+    m_folderNoteText->setTextFormat(Qt::RichText);
+    fl->addWidget(m_folderNoteText, 1);
+    m_folderNoteYes = new QPushButton;
+    m_folderNoteNo = new QPushButton;
+    m_folderNoteYes->setObjectName("SmallButton");
+    m_folderNoteNo->setObjectName("SmallButton");
+    fl->addWidget(m_folderNoteYes);
+    fl->addWidget(m_folderNoteNo);
+    m_folderNote->hide();
+    v->addWidget(m_folderNote);
 
     // Status banner
     m_banner = new QWidget;
@@ -255,8 +288,15 @@ void MeetingView::reload()
         meta << formatDuration(m_meeting.duration);
     if (!m_meeting.sourceLabel.isEmpty())
         meta << m_meeting.sourceLabel + (m_meeting.microphoneLabel.isEmpty() ? QString() : tr(" + microphone"));
-    if (!m_meeting.folder.isEmpty())
-        meta << m_meeting.folder;
+    if (m_meeting.folder.isEmpty()) {
+        m_folderChip->setText(tr("No folder"));
+        m_folderChip->setIcon(icon("folder", Theme::color(Token::Muted)));
+    } else {
+        const FolderInfo f = m_ctx.store->folder(m_meeting.folder);
+        m_folderChip->setText(f.name);
+        m_folderChip->setIcon(icon(f.icon, folderColor(f.color)));
+    }
+    updateFolderNote();
     if (!m_meeting.tags.isEmpty())
         meta << "#" + m_meeting.tags.join(" #");
     m_meta->setText(meta.join("  ·  "));
@@ -437,26 +477,108 @@ void MeetingView::toggleAsk()
         m_ask->focusInput();
 }
 
-void MeetingView::editDetails()
+void MeetingView::fillFolderMenu(QMenu *menu)
 {
-    bool ok = false;
-    const QString tags = QInputDialog::getText(this, tr("Tags"), tr("Tags, separated by commas:"), QLineEdit::Normal,
-                                               m_meeting.tags.join(", "), &ok);
-    if (!ok)
+    menu->clear();
+    const QString id = m_meeting.id;
+    for (const auto &f : m_ctx.store->folders()) {
+        QAction *a = menu->addAction(icon(f.icon, folderColor(f.color)), f.name, this, [this, id, name = f.name] {
+            m_ctx.store->setFolder(id, name);
+            reload();
+            Q_EMIT changed(id);
+        });
+        a->setCheckable(true);
+        a->setChecked(m_meeting.folder.compare(f.name, Qt::CaseInsensitive) == 0);
+    }
+    if (!menu->isEmpty())
+        menu->addSeparator();
+    menu->addAction(icon("plus"), tr("New folder…"), this, [this, id] {
+        FolderInfo f;
+        QStringList taken;
+        for (const auto &e : m_ctx.store->folders())
+            taken << e.name;
+        if (!editFolder(this, &f, true, taken))
+            return;
+        m_ctx.store->saveFolder(f);
+        m_ctx.store->setFolder(id, f.name);
+        reload();
+        Q_EMIT changed(id);
+    });
+    if (!m_meeting.folder.isEmpty())
+        menu->addAction(icon("close"), tr("Remove from folder"), this, [this, id] {
+            m_ctx.store->setFolder(id, {});
+            reload();
+            Q_EMIT changed(id);
+        });
+}
+
+void MeetingView::updateFolderNote()
+{
+    m_folderNoteYes->disconnect(this);
+    m_folderNoteNo->disconnect(this);
+    const QString id = m_meeting.id;
+    if (m_meeting.folderAuto && !m_meeting.folder.isEmpty()) {
+        m_folderNoteText->setText(tr("AfterLine filed this meeting in <b>%1</b>.").arg(m_meeting.folder.toHtmlEscaped()));
+        m_folderNoteYes->setText(tr("Keep"));
+        m_folderNoteNo->setText(tr("Undo"));
+        connect(m_folderNoteYes, &QPushButton::clicked, this, [this, id] {
+            MeetingInfo m = m_ctx.store->get(id);
+            m.folderAuto = false;
+            m_ctx.store->save(m);
+            reload();
+        });
+        connect(m_folderNoteNo, &QPushButton::clicked, this, [this, id] {
+            m_ctx.store->setFolder(id, {});
+            reload();
+            Q_EMIT changed(id);
+        });
+        m_folderNote->show();
+    } else if (m_meeting.folder.isEmpty() && !m_meeting.folderSuggestion.isEmpty()) {
+        m_folderNoteText->setText(tr("Put this meeting in a new folder, <b>%1</b>?")
+                                      .arg(m_meeting.folderSuggestion.toHtmlEscaped()));
+        m_folderNoteYes->setText(tr("Create folder"));
+        m_folderNoteNo->setText(tr("Not now"));
+        connect(m_folderNoteYes, &QPushButton::clicked, this, [this, id] {
+            const MeetingInfo m = m_ctx.store->get(id);
+            FolderInfo f{m.folderSuggestion, "folder", {}};
+            // A colour of its own: the next one not used yet.
+            QStringList used;
+            for (const auto &e : m_ctx.store->folders())
+                used << e.color;
+            for (const auto &c : folderColors())
+                if (!used.contains(c)) {
+                    f.color = c;
+                    break;
+                }
+            m_ctx.store->saveFolder(f);
+            m_ctx.store->setFolder(id, f.name);
+            reload();
+            Q_EMIT changed(id);
+        });
+        connect(m_folderNoteNo, &QPushButton::clicked, this, [this, id] {
+            MeetingInfo m = m_ctx.store->get(id);
+            m.folderSuggestion.clear();
+            m_ctx.store->save(m);
+            reload();
+        });
+        m_folderNote->show();
+    } else {
+        m_folderNote->hide();
+    }
+}
+
+void MeetingView::editTags()
+{
+    QString tags = m_meeting.tags.join(", ");
+    if (!askText(this, tr("Tags"), tr("Separate tags with commas. Tags appear in the sidebar."), &tags,
+                 tr("for example: planning, client"), tr("Save"), true))
         return;
-    QStringList folders = m_ctx.store->allFolders();
-    folders.prepend(tr("(No folder)"));
-    const int current = m_meeting.folder.isEmpty() ? 0 : int(folders.indexOf(m_meeting.folder));
-    const QString folder = QInputDialog::getItem(this, tr("Folder"), tr("Folder (type a new name to create one):"),
-                                                 folders, std::max(0, current), true, &ok);
     m_meeting = m_ctx.store->get(m_meeting.id);
     m_meeting.tags.clear();
     for (const QString &t : tags.split(',', Qt::SkipEmptyParts))
         if (!t.trimmed().isEmpty())
             m_meeting.tags << t.trimmed();
     m_meeting.tags.removeDuplicates();
-    if (ok)
-        m_meeting.folder = folder == tr("(No folder)") ? QString() : folder.trimmed();
     m_ctx.store->save(m_meeting);
     reload();
     Q_EMIT changed(m_meeting.id);
