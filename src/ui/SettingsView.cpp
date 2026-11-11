@@ -34,7 +34,7 @@ namespace afterline::ui {
 ModelRow::ModelRow(AppContext ctx, const ModelSpec &spec, QButtonGroup *group, QWidget *parent)
     : QWidget(parent), m_ctx(ctx), m_spec(spec)
 {
-    setObjectName("Card");
+    setObjectName("ModelRow");
     setAttribute(Qt::WA_StyledBackground);
     auto *h = new QHBoxLayout(this);
     h->setContentsMargins(14, 12, 14, 12);
@@ -164,9 +164,10 @@ SettingsView::SettingsView(AppContext ctx, QWidget *parent) : QWidget(parent), m
     center->addStretch();
     center->addWidget(content, 10);
     center->addStretch();
-    auto *v = new QVBoxLayout(content);
-    v->setContentsMargins(24, 28, 24, 40);
-    v->setSpacing(10);
+    auto *root = new QVBoxLayout(content);
+    root->setContentsMargins(24, 28, 24, 40);
+    root->setSpacing(14);
+    QVBoxLayout *v = root;
 
     auto *head = new QHBoxLayout;
     head->addWidget(label(tr("Settings"), "PageTitle"), 1);
@@ -175,17 +176,32 @@ SettingsView::SettingsView(AppContext ctx, QWidget *parent) : QWidget(parent), m
     head->addWidget(close);
     v->addLayout(head);
 
+    // Each section is a card; what follows a section() call goes into it.
     auto section = [&](const QString &title, const QString &help = {}) {
-        v->addSpacing(16);
+        auto *card = new QWidget;
+        card->setObjectName("Card");
+        card->setAttribute(Qt::WA_StyledBackground);
+        root->addWidget(card);
+        v = new QVBoxLayout(card);
+        v->setContentsMargins(22, 18, 22, 20);
+        v->setSpacing(10);
         v->addWidget(label(title, "SectionTitle"));
         if (!help.isEmpty())
             v->addWidget(label(help, "Muted"));
+        v->addSpacing(4);
+    };
+    auto toggle = [&](const QString &text, bool on, auto setter) {
+        auto *t = new ToggleSwitch(text);
+        t->setChecked(on);
+        connect(t, &QCheckBox::toggled, this, [this, setter](bool value) { (m_ctx.settings->*setter)(value); });
+        v->addWidget(t);
+        return t;
     };
 
     // General
     section(tr("General"));
     auto *form = new QFormLayout;
-    form->setLabelAlignment(Qt::AlignLeft);
+    form->setLabelAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     auto *theme = new QComboBox;
     theme->addItem(tr("Follow the system"), "system");
     theme->addItem(tr("Light"), "light");
@@ -196,17 +212,16 @@ SettingsView::SettingsView(AppContext ctx, QWidget *parent) : QWidget(parent), m
         m_ctx.settings->setTheme(theme->currentData().toString());
         Q_EMIT themeChanged();
     });
-    auto *tray = new QCheckBox(tr("Keep running in the system tray when the window is closed"));
-    tray->setChecked(ctx.settings->closeToTray());
-    connect(tray, &QCheckBox::toggled, this, [this](bool on) { m_ctx.settings->setCloseToTray(on); });
-    form->addRow(QString(), tray);
     v->addLayout(form);
+    toggle(tr("Keep running in the system tray when the window is closed"), ctx.settings->closeToTray(),
+           &Settings::setCloseToTray);
 
     // Transcription
     section(tr("Transcription"),
             tr("Speech recognition runs entirely on this computer. Models are downloaded once from Hugging Face "
                "and checked against a known checksum; after that, no internet connection is needed."));
     auto *tf = new QFormLayout;
+    tf->setLabelAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     auto *lang = new QComboBox;
     for (const auto &code : Settings::supportedLanguages())
         lang->addItem(Settings::languageName(code), code);
@@ -214,11 +229,6 @@ SettingsView::SettingsView(AppContext ctx, QWidget *parent) : QWidget(parent), m
     connect(lang, &QComboBox::currentIndexChanged, this,
             [this, lang] { m_ctx.settings->setLanguage(lang->currentData().toString()); });
     tf->addRow(tr("Meeting language"), lang);
-    tf->addRow(QString(), label(tr("Choosing the language is more accurate than automatic detection."), "Muted"));
-    auto *autoT = new QCheckBox(tr("Transcribe automatically when a recording ends"));
-    autoT->setChecked(ctx.settings->autoTranscribe());
-    connect(autoT, &QCheckBox::toggled, this, [this](bool on) { m_ctx.settings->setAutoTranscribe(on); });
-    tf->addRow(QString(), autoT);
     auto *quality = new QComboBox;
     quality->addItem(tr("Fast"), "fast");
     quality->addItem(tr("Balanced"), "balanced");
@@ -228,23 +238,29 @@ SettingsView::SettingsView(AppContext ctx, QWidget *parent) : QWidget(parent), m
             [this, quality] { m_ctx.settings->setQuality(quality->currentData().toString()); });
     tf->addRow(tr("Decoding"), quality);
     v->addLayout(tf);
+    v->addWidget(label(tr("Choosing the meeting language is more accurate than automatic detection."), "Muted"));
+    toggle(tr("Show a live transcript while recording"), ctx.settings->liveTranscript(), &Settings::setLiveTranscript);
+    v->addWidget(label(tr("Written quickly as people speak, using a little of the processor. The careful transcript "
+                          "is still made from the whole recording when it ends."),
+                       "Muted"));
+    toggle(tr("Transcribe automatically when a recording ends"), ctx.settings->autoTranscribe(),
+           &Settings::setAutoTranscribe);
+    v->addSpacing(6);
     v->addWidget(modelList(ctx, ModelKind::Speech));
 
     // Notes
     section(tr("Notes"),
             tr("Summaries, decisions and action items are written by a language model on this computer. Every "
                "item is linked to the transcript, and details the transcript does not support are left out."));
-    auto *autoN = new QCheckBox(tr("Write notes automatically after transcription"));
-    autoN->setChecked(ctx.settings->autoNotes());
-    connect(autoN, &QCheckBox::toggled, this, [this](bool on) { m_ctx.settings->setAutoNotes(on); });
-    v->addWidget(autoN);
+    toggle(tr("Write notes automatically after transcription"), ctx.settings->autoNotes(), &Settings::setAutoNotes);
     v->addWidget(modelList(ctx, ModelKind::Notes));
 
     // Performance
     section(tr("Performance"),
-            tr("Processing runs at low priority and pauses completely while you record, so your call keeps the "
-               "computer's full attention."));
+            tr("Processing runs at low priority, and the full transcript and notes wait until a recording ends, "
+               "so your call keeps the computer's full attention."));
     auto *pf = new QFormLayout;
+    pf->setLabelAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     auto *threads = new QSpinBox;
     threads->setRange(0, std::max(1, QThread::idealThreadCount()));
     threads->setSpecialValueText(tr("Automatic"));
@@ -305,7 +321,7 @@ SettingsView::SettingsView(AppContext ctx, QWidget *parent) : QWidget(parent), m
             l->setOpenExternalLinks(true);
             l->setTextFormat(Qt::RichText);
         }
-    v->addStretch();
+    root->addStretch();
 }
 
 }  // namespace afterline::ui

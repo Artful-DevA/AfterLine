@@ -27,8 +27,11 @@ Website and downloads: <https://afterline-linux.netlify.app>
   from other applications is never recorded. Meeting apps that are open but not
   yet playing can already be selected.
 - **Your microphone on its own track**, or not at all. With the microphone off,
-  AfterLine never opens it. A live level meter shows that it works before you
-  start.
+  AfterLine never opens it. A *Test* button and level meter show that it works
+  before you start; the microphone is only opened while testing or recording.
+- **Live transcript while you record.** Sentences appear a few seconds after
+  they are spoken, marked as preliminary. When you stop, the careful transcript
+  is made from the whole recording (the live one is shown until it is ready).
 - **Recordings that survive anything.** Audio is written continuously as Ogg
   Opus and synced to disk every few seconds. A crash, a power cut or `kill -9`
   costs at most a few seconds, and the next launch recovers the meeting. Unplugged
@@ -166,8 +169,10 @@ verified, and how, is recorded in
 - Speaker diarization (telling apart several people on the call) is not
   implemented. Lines are labelled *You* or *Meeting*, never with guessed
   names.
-- Live transcription during the meeting is not implemented; transcription
-  starts when the recording ends.
+- The live transcript is preliminary: it uses the same model at a faster
+  setting and handles echo between the tracks more simply. On slow computers it
+  can fall behind by several seconds; turn it off in Settings if the call
+  stutters.
 - When you talk over the call's last words using speakers rather than
   headphones, the echo suppression can clip your first word.
 - Systems that still use PulseAudio (default on Ubuntu 22.04 / Mint 21) must

@@ -13,6 +13,7 @@ class QLabel;
 class QLineEdit;
 class QPushButton;
 class QStackedWidget;
+class QTextBrowser;
 
 namespace afterline::ui {
 
@@ -41,6 +42,9 @@ private:
     void showWarning(const QString &title, const QString &message);
     QWidget *buildIdle();
     QWidget *buildRecording();
+    void setTesting(bool on);
+    void renderLive();
+    void updateLiveState();
 
     AppContext m_ctx;
     QStackedWidget *m_stack;
@@ -50,6 +54,10 @@ private:
     QCheckBox *m_includeMic;
     QComboBox *m_mic;
     LevelMeter *m_previewMeter;
+    QPushButton *m_test;
+    QCheckBox *m_liveToggle;
+    QTimer m_testTimeout;
+    bool m_testing = false;
     QLabel *m_audioProblem;
     QPushButton *m_start;
     // Recording
@@ -63,6 +71,10 @@ private:
     QWidget *m_warning;
     QLabel *m_warningTitle, *m_warningText;
     QPushButton *m_pause, *m_stop;
+    // Live transcript
+    QTextBrowser *m_live;
+    QLabel *m_liveStatus;
+    QString m_partial, m_partialSource;
     QTimer m_timerTick;
     bool m_active = false;
 };

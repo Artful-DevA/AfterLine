@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+#include <QCheckBox>
 #include <QLabel>
+#include <QStyledItemDelegate>
+#include <QVariantAnimation>
 #include <QTimer>
 #include <QVector>
 #include <QWidget>
@@ -73,6 +76,35 @@ private:
     double m_duration = 0, m_position = 0;
     QVector<QPair<double, QString>> m_markers;
     bool m_compact = false;
+};
+
+// An on/off switch. It is a QCheckBox (same signals), drawn as a switch with
+// the text on the left and an optional description below.
+class ToggleSwitch : public QCheckBox {
+    Q_OBJECT
+public:
+    explicit ToggleSwitch(const QString &text, QWidget *parent = nullptr);
+    QSize sizeHint() const override;
+    QSize minimumSizeHint() const override { return {120, 28}; }
+
+protected:
+    void paintEvent(QPaintEvent *) override;
+    bool hitButton(const QPoint &) const override { return true; }
+    void checkStateSet() override;
+    void nextCheckState() override;
+
+private:
+    QVariantAnimation m_anim;
+    double m_pos = 0;
+};
+
+// Combo box items with an icon, a title and a muted second line
+// (Qt::UserRole + 1), with separators drawn as thin rules.
+class TwoLineDelegate : public QStyledItemDelegate {
+public:
+    using QStyledItemDelegate::QStyledItemDelegate;
+    void paint(QPainter *p, const QStyleOptionViewItem &opt, const QModelIndex &index) const override;
+    QSize sizeHint(const QStyleOptionViewItem &opt, const QModelIndex &index) const override;
 };
 
 QLabel *label(const QString &text, const char *objectName = nullptr, QWidget *parent = nullptr);

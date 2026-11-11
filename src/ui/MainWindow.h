@@ -25,6 +25,7 @@ public:
     void bringToFront();
     // True: really quit (the user confirmed or nothing is recording).
     bool confirmQuit();
+    QString currentMeetingId() const;
 
 Q_SIGNALS:
     void themeChanged();

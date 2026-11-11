@@ -28,6 +28,8 @@ public:
     void setThreads(int n);
     QString theme() const;    // system | light | dark
     void setTheme(const QString &t);
+    bool liveTranscript() const;  // preliminary transcript while recording
+    void setLiveTranscript(bool on);
     bool closeToTray() const;
     void setCloseToTray(bool on);
     bool includeMicrophone() const;

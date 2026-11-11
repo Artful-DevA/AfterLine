@@ -41,7 +41,9 @@ class TranscriptView : public QWidget {
     Q_OBJECT
 public:
     explicit TranscriptView(QWidget *parent = nullptr);
-    void load(const QString &path);
+    // preliminary: the live transcript made while recording, shown read-only
+    // until the full transcript is ready.
+    void load(const QString &path, bool preliminary = false);
     void setPlaybackPosition(double seconds);
     void revealTime(double seconds);
     void focusFind();

@@ -30,7 +30,9 @@ Processing::~Processing()
 {
     if (m_proc) {
         // Leave the work resumable: the job state stays "running" and the
-        // transcriber keeps its partial results.
+        // transcriber keeps its partial results. Disconnect first, so the
+        // engine's exit is not recorded as a failure.
+        m_proc->disconnect(this);
         ::kill(pid_t(m_proc->processId()), SIGCONT);
         m_proc->terminate();
         if (!m_proc->waitForFinished(3000))
@@ -124,6 +126,11 @@ bool Processing::writeNotes(const QString &meetingId, QString *error)
     if (!m.isValid() || !m.hasTranscript()) {
         if (error)
             *error = tr("Notes are written from the transcript. Transcribe the meeting first.");
+        return false;
+    }
+    if (m.transcriptIsEmpty()) {
+        if (error)
+            *error = tr("No speech was found in this recording, so there is nothing to write notes about.");
         return false;
     }
     if (!model || !model->installed()) {
@@ -315,6 +322,7 @@ void Processing::onExit(int code, QProcess::ExitStatus status)
                 if (m.language.isEmpty())
                     m.language = t["language"].toString();
                 m_store.save(m);
+                QFile::remove(m.path("live-transcript.json"));
             } else {
                 const MeetingNotes n = loadNotes(job.output);
                 if (m.titleIsAuto && !n.title().isEmpty()) {

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 #include "audio/Player.h"
 
+#include <unistd.h>
+
 #include <pipewire/pipewire.h>
 #include "audio/PwCompat.h"
 #include <spa/param/audio/format-utils.h>
@@ -137,6 +139,7 @@ bool Player::open(const std::string &computerPath, const std::string &microphone
                                              PW_KEY_MEDIA_ROLE, "Music", PW_KEY_APP_NAME, "AfterLine",
                                              PW_KEY_NODE_NAME, "afterline-playback",
                                              PW_KEY_NODE_DESCRIPTION, "AfterLine playback", nullptr);
+    pw_properties_setf(props, kOwnerKey, "%d", int(::getpid()));
     impl->stream = pw_stream_new(m_graph.core(), "AfterLine playback", props);
     if (!impl->stream) {
         if (error)

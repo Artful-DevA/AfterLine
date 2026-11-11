@@ -6,6 +6,10 @@
 #include <QStyleFactory>
 #include <QStyleHints>
 
+#include "ui/Icons.h"
+
+#include <algorithm>
+
 namespace afterline::ui {
 
 namespace {
@@ -19,12 +23,14 @@ struct Palette {
         *onAccent, *recording, *success, *warning, *danger, *trackComputer, *trackMicrophone;
 };
 
-constexpr Palette kLight = {"#F7F3EC", "#FFFCF7", "#EFE8DD", "#E0D6C8", "#292522", "#6F655B", "#B85B3F",
-                            "#A14E36", "#F3DFD4", "#FFFFFF", "#C8372D", "#3F7A52", "#9A6512", "#B3261E",
-                            "#B85B3F", "#4F6F86"};
-constexpr Palette kDark = {"#1C1714", "#25201C", "#2C2520", "#3E342D", "#EFE7DD", "#B3A496", "#D9805F",
-                           "#E4927A", "#4A2F25", "#1C1714", "#F0564B", "#7DBB8D", "#E0A458", "#F2827A",
-                           "#D9805F", "#8DB0C9"};
+// background, surface (cards), surfaceAlt (sidebar), border, text, muted, accent, accentHover, accentSoft,
+// onAccent, recording, success, warning, danger, trackComputer, trackMicrophone
+constexpr Palette kLight = {"#EFE7DB", "#FCF8F2", "#E5DBCC", "#D6C9B7", "#27211D", "#665B50", "#B4553A",
+                            "#9C4730", "#F0D9CC", "#FFFFFF", "#C8372D", "#3B7550", "#8F5D10", "#B3261E",
+                            "#B4553A", "#4A6A82"};
+constexpr Palette kDark = {"#2B2420", "#362E28", "#241E1A", "#4D423A", "#F3EBE1", "#C1B2A3", "#E08C6B",
+                           "#EBA085", "#5C3D31", "#241E1A", "#F0564B", "#86C499", "#E5AC62", "#F2827A",
+                           "#E08C6B", "#93B6CF"};
 
 const Palette &current() { return g_dark ? kDark : kLight; }
 
@@ -107,63 +113,87 @@ QString Theme::styleSheet()
 {
     QString css = R"(
 QWidget { font-size: 10.5pt; }
-QToolTip { padding: 6px 8px; border: 0; }
+QToolTip { padding: 6px 9px; border: 0; border-radius: 6px; }
 #Sidebar { background: @surfaceAlt; border-right: 1px solid @border; }
 #Sidebar QListView { background: transparent; border: 0; outline: 0; }
 #BrandName { font-size: 15pt; font-weight: 700; }
-#PageTitle { font-size: 20pt; font-weight: 600; }
-#SectionTitle { font-size: 12.5pt; font-weight: 600; }
+#PageTitle { font-size: 21pt; font-weight: 650; }
+#SectionTitle { font-size: 12pt; font-weight: 600; }
+#Eyebrow { font-size: 8.5pt; font-weight: 700; color: @muted; letter-spacing: 1px; }
 #Muted, .Muted { color: @muted; }
-#Card { background: @surface; border: 1px solid @border; border-radius: 12px; }
+#Card { background: @surface; border: 1px solid @border; border-radius: 14px; }
+#ModelRow { background: @background; border: 1px solid @border; border-radius: 12px; }
+#SoftCard { background: @surfaceAlt; border: 0; border-radius: 12px; }
 #Banner { background: @accentSoft; border-radius: 10px; }
 #WarningBanner { background: @warningSoft; border: 1px solid @warning; border-radius: 10px; }
 #ErrorText { color: @danger; }
+#Pill { background: @accentSoft; color: @accent; border-radius: 10px; padding: 2px 9px; font-size: 9pt; font-weight: 700; }
+#LivePill { background: @recordingSoft; color: @recording; border-radius: 10px; padding: 3px 10px; font-size: 9pt; font-weight: 700; }
 QLineEdit, QPlainTextEdit, QTextEdit, QComboBox, QSpinBox {
-  background: @surface; border: 1px solid @border; border-radius: 8px; padding: 7px 9px;
+  background: @surface; border: 1px solid @border; border-radius: 9px; padding: 0 10px; min-height: 34px;
   selection-background-color: @accentSoft; selection-color: @text; }
+QPlainTextEdit, QTextEdit { padding: 8px 10px; }
+#Search { padding: 7px 8px; min-height: 0; border-radius: 10px; }
+QLineEdit:hover, QComboBox:hover, QSpinBox:hover { border-color: @borderStrong; }
 QLineEdit:focus, QPlainTextEdit:focus, QTextEdit:focus, QComboBox:focus, QSpinBox:focus { border: 1px solid @accent; }
-QComboBox::drop-down { border: 0; width: 26px; }
-QComboBox QAbstractItemView { background: @surface; border: 1px solid @border; selection-background-color: @accentSoft;
-  selection-color: @text; outline: 0; padding: 4px; }
-#TitleEdit { font-size: 19pt; font-weight: 600; border: 1px solid transparent; background: transparent; padding: 2px 6px; }
+QComboBox { combobox-popup: 0; padding-right: 30px; }
+QComboBox:on { border: 1px solid @accent; }
+QComboBox::drop-down { subcontrol-origin: padding; subcontrol-position: center right; border: 0; width: 30px; }
+QComboBox::down-arrow { image: url(@chevron); width: 14px; height: 14px; }
+QComboBox::down-arrow:on { top: 1px; }
+QComboBox:disabled { color: @muted; background: @surfaceAlt; }
+QComboBox QAbstractItemView { background: @surface; border: 1px solid @border; border-radius: 10px; outline: 0; padding: 5px;
+  selection-background-color: @accentSoft; selection-color: @text; }
+QComboBox QAbstractItemView::item { min-height: 32px; padding: 0 8px; border-radius: 7px; }
+QComboBox QAbstractItemView::item:hover, QComboBox QAbstractItemView::item:selected { background: @accentSoft; color: @text; }
+#TitleEdit { font-size: 19pt; font-weight: 650; border: 1px solid transparent; background: transparent; padding: 2px 6px; min-height: 40px; }
 #TitleEdit:hover { border: 1px solid @border; }
 #TitleEdit:focus { border: 1px solid @accent; background: @surface; }
-QPushButton, QToolButton { background: @surface; border: 1px solid @border; border-radius: 8px; padding: 7px 14px; }
-QPushButton:hover, QToolButton:hover { border-color: @muted; }
+QPushButton, QToolButton { background: @surface; border: 1px solid @border; border-radius: 9px; padding: 0 14px; min-height: 34px; }
+QPushButton:hover, QToolButton:hover { border-color: @borderStrong; background: @surfaceHover; }
 QPushButton:pressed, QToolButton:pressed { background: @surfaceAlt; }
 QPushButton:focus, QToolButton:focus { border: 1px solid @accent; }
-QPushButton:disabled, QToolButton:disabled { color: @muted; background: @surfaceAlt; }
-QToolButton[flat="true"], QPushButton[flat="true"] { border: 0; background: transparent; padding: 6px; }
+QPushButton:disabled, QToolButton:disabled { color: @muted; background: @surfaceAlt; border-color: @surfaceAlt; }
+QToolButton[flat="true"], QPushButton[flat="true"] { border: 0; background: transparent; padding: 0; min-height: 32px; min-width: 32px; border-radius: 8px; }
 QToolButton[flat="true"]:hover, QPushButton[flat="true"]:hover { background: @hoverBg; }
+QLineEdit QToolButton { min-height: 0; min-width: 0; padding: 0; border: 0; background: transparent; }
 QToolButton::menu-indicator, QPushButton::menu-indicator { image: none; width: 0; }
-#Primary { background: @accent; color: @onAccent; border: 0; font-weight: 600; padding: 9px 18px; }
+#Primary { background: @accent; color: @onAccent; border: 0; font-weight: 650; padding: 0 18px; min-height: 36px; }
 #Primary:hover { background: @accentHover; }
 #Primary:disabled { background: @border; color: @muted; }
 #Danger { color: @danger; }
-#RecordButton { background: @accent; color: @onAccent; border: 0; border-radius: 26px; font-size: 12.5pt;
-  font-weight: 600; padding: 14px 30px; }
+#RecordButton { background: @accent; color: @onAccent; border: 0; border-radius: 25px; font-size: 12pt;
+  font-weight: 650; padding: 0 30px; min-height: 50px; }
 #RecordButton:hover { background: @accentHover; }
-#StopButton { background: @recording; color: #FFFFFF; border: 0; border-radius: 22px; font-weight: 600; padding: 11px 24px; }
-#Timer { font-size: 40pt; font-weight: 300; }
-QTabBar::tab { background: transparent; border: 0; border-bottom: 2px solid transparent; padding: 8px 4px; margin-right: 18px;
+#RecordButton:disabled { background: @border; color: @muted; }
+#StopButton { background: @recording; color: #FFFFFF; border: 0; border-radius: 21px; font-weight: 650; padding: 0 22px; min-height: 42px; }
+#StopButton:hover { background: @recordingHover; }
+#PauseButton { border-radius: 21px; padding: 0 20px; min-height: 42px; font-weight: 600; }
+#Timer { font-size: 34pt; font-weight: 300; }
+QTabBar::tab { background: transparent; border: 0; border-bottom: 2px solid transparent; padding: 9px 4px; margin-right: 20px;
   color: @muted; font-weight: 600; }
 QTabBar::tab:selected { color: @text; border-bottom: 2px solid @accent; }
 QTabBar::tab:hover { color: @text; }
 QTabWidget::pane { border: 0; border-top: 1px solid @border; }
 QScrollBar:vertical { background: transparent; width: 10px; margin: 2px; }
-QScrollBar::handle:vertical { background: @border; border-radius: 4px; min-height: 30px; }
+QScrollBar::handle:vertical { background: @border; border-radius: 3px; min-height: 30px; }
 QScrollBar::handle:vertical:hover { background: @muted; }
 QScrollBar::add-line, QScrollBar::sub-line { height: 0; width: 0; }
+QScrollBar::add-page, QScrollBar::sub-page { background: transparent; }
 QScrollBar:horizontal { background: transparent; height: 10px; margin: 2px; }
-QScrollBar::handle:horizontal { background: @border; border-radius: 4px; min-width: 30px; }
-QCheckBox::indicator { width: 16px; height: 16px; }
-QProgressBar { background: @surfaceAlt; border: 0; border-radius: 3px; height: 6px; text-align: center; color: transparent; }
+QScrollBar::handle:horizontal { background: @border; border-radius: 3px; min-width: 30px; }
+QCheckBox { spacing: 9px; }
+QCheckBox::indicator { width: 18px; height: 18px; border: 1.5px solid @borderStrong; border-radius: 5px; background: @surface; }
+QCheckBox::indicator:hover { border-color: @accent; }
+QCheckBox::indicator:checked { background: @accent; border-color: @accent; image: url(@check); }
+QRadioButton { spacing: 9px; }
+QProgressBar { background: @surfaceAlt; border: 0; border-radius: 3px; max-height: 6px; min-height: 6px; text-align: center; color: transparent; }
 QProgressBar::chunk { background: @accent; border-radius: 3px; }
 QSlider::groove:horizontal { height: 4px; background: @border; border-radius: 2px; }
 QSlider::sub-page:horizontal { background: @accent; border-radius: 2px; }
 QSlider::handle:horizontal { background: @surface; border: 2px solid @accent; width: 12px; height: 12px; margin: -6px 0; border-radius: 8px; }
-QMenu { background: @surface; border: 1px solid @border; padding: 6px; border-radius: 8px; }
-QMenu::item { padding: 7px 22px 7px 12px; border-radius: 6px; }
+QMenu { background: @surface; border: 1px solid @border; padding: 6px; border-radius: 10px; }
+QMenu::item { padding: 8px 24px 8px 12px; border-radius: 7px; }
 QMenu::item:selected { background: @accentSoft; color: @text; }
 QMenu::separator { height: 1px; background: @border; margin: 5px 8px; }
 QTextBrowser { border: 0; background: @surface; }
@@ -171,12 +201,18 @@ QListView, QTreeView { background: @surface; border: 0; outline: 0; }
 QSplitter::handle { background: @border; }
 QGroupBox { border: 0; margin-top: 18px; font-weight: 600; }
 QGroupBox::title { subcontrol-origin: margin; left: 0; padding: 0; }
+QDialog { background: @background; }
+QMessageBox QLabel { min-width: 300px; }
 )";
     const QColor warn = color(Token::Warning);
     QColor warnSoft = warn;
     warnSoft.setAlpha(28);
     QColor hover = color(Token::Text);
     hover.setAlpha(18);
+    QColor recSoft = color(Token::Recording);
+    recSoft.setAlpha(isDark() ? 50 : 30);
+    const QColor borderStrong = isDark() ? color(Token::Border).lighter(135) : color(Token::Border).darker(118);
+    const QColor surfaceHover = isDark() ? color(Token::Surface).lighter(110) : color(Token::Surface).darker(102);
     auto rgba = [](const QColor &c) {
         return QString("rgba(%1,%2,%3,%4)").arg(c.red()).arg(c.green()).arg(c.blue()).arg(c.alpha());
     };
@@ -188,8 +224,17 @@ QGroupBox::title { subcontrol-origin: margin; left: 0; padding: 0; }
         {"@recording", hex(Token::Recording)},   {"@danger", hex(Token::Danger)},
         {"@warningSoft", rgba(warnSoft)},        {"@warning", hex(Token::Warning)},
         {"@hoverBg", rgba(hover)},               {"@text", hex(Token::Text)},
+        {"@borderStrong", borderStrong.name()},  {"@surfaceHover", surfaceHover.name()},
+        {"@recordingSoft", rgba(recSoft)},       {"@recordingHover", color(Token::Recording).darker(112).name()},
+        {"@background", hex(Token::Background)},
+        {"@chevron", iconFile("chevron-down", color(Token::Muted), 2.2)},
+        {"@check", iconFile("check", color(Token::OnAccent), 3.0)},
     };
-    for (const auto &v : vars)
+    // Longest names first, so "@surfaceAlt" is not caught by "@surface".
+    auto sorted = vars;
+    std::sort(sorted.begin(), sorted.end(),
+              [](const auto &a, const auto &b) { return a.first.size() > b.first.size(); });
+    for (const auto &v : sorted)
         css.replace(v.first, v.second);
     return css;
 }

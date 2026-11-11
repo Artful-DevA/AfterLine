@@ -74,6 +74,10 @@ void fillNode(NodeInfo &n, const spa_dict *props)
         n.pid = std::atoi(pid.c_str());
         n.ours = n.pid == int(::getpid());
     }
+    // Streams do not always carry the process id; AfterLine marks its own.
+    const std::string own = prop(props, kOwnerKey);
+    if (!own.empty() && std::atoi(own.c_str()) == int(::getpid()))
+        n.ours = true;
 }
 
 }  // namespace

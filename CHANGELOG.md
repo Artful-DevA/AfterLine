@@ -15,10 +15,13 @@ C++/Qt 6 application.
 - Native PipeWire recording of the entire computer, one output device, or one
   application. Application capture follows the application across stream
   restarts and never includes other applications.
-- Microphone on its own track, with a level check before recording.
+- Microphone on its own track, with an on-demand microphone test; the
+  microphone is never opened just because the recording page is shown.
 - Crash-tolerant Ogg Opus recording (about 15 MB per hour per track) with
   automatic recovery of interrupted meetings, live warnings for disconnected
   devices, low disk space and suspend, and pause/resume.
+- Live transcript while recording (preliminary, shown beside the recording and
+  kept in the meeting until the full transcript is ready); can be turned off.
 - Built-in offline transcription (whisper.cpp) with speech detection,
   sentence-level timestamps, echo suppression, *You*/*Meeting* labels,
   uncertainty marking, corrections, and resumable processing of long meetings.

@@ -281,9 +281,13 @@ TranscriptView::TranscriptView(QWidget *parent) : QWidget(parent)
     connect(m_list->verticalScrollBar(), &QScrollBar::sliderPressed, this, [this] { m_follow = false; });
 }
 
-void TranscriptView::load(const QString &path)
+void TranscriptView::load(const QString &path, bool preliminary)
 {
     m_path = path;
+    m_list->setEditTriggers(preliminary ? QAbstractItemView::NoEditTriggers
+                                        : QAbstractItemView::DoubleClicked | QAbstractItemView::EditKeyPressed);
+    m_info->setText(preliminary ? tr("Preliminary transcript from the live view · the full one is on its way")
+                                : tr("Click a time to play · double-click to correct"));
     Transcript t;
     t.load(path);
     m_model->setTranscript(t);

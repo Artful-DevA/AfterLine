@@ -14,6 +14,7 @@ class MeetingStore;
 class ModelManager;
 class Processing;
 class RecordingController;
+class LiveTranscriber;
 
 namespace ui {
 class MainWindow;
@@ -26,6 +27,7 @@ struct AppContext {
     ModelManager *models = nullptr;
     Processing *processing = nullptr;
     RecordingController *recording = nullptr;
+    LiveTranscriber *live = nullptr;
 };
 
 class Application : public QObject {
@@ -38,6 +40,8 @@ public:
     static QString socketName();
 
 private:
+    void createWindow();
+    void applyTheme(bool fromSettings);
     void setupTray();
     void updateTray();
     void notify(const QString &title, const QString &message);

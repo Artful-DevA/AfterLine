@@ -21,7 +21,7 @@ namespace afterline::ui {
 LevelMeter::LevelMeter(QWidget *parent) : QWidget(parent)
 {
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-    setFixedHeight(8);
+    setFixedHeight(6);
     setAccessibleName(tr("Audio level"));
 }
 
@@ -49,13 +49,16 @@ void LevelMeter::paintEvent(QPaintEvent *)
     p.setRenderHint(QPainter::Antialiasing);
     const QRectF r = rect().adjusted(0.5, 0.5, -0.5, -0.5);
     p.setPen(Qt::NoPen);
-    p.setBrush(Theme::color(Token::SurfaceAlt));
-    p.drawRoundedRect(r, 4, 4);
+    QColor track = Theme::color(Token::Border);
+    track.setAlphaF(Theme::isDark() ? 0.9 : 0.7);
+    p.setBrush(track);
+    p.drawRoundedRect(r, 3, 3);
     if (!m_active)
         return;
     QColor c = m_level > 0.95f ? Theme::color(Token::Warning) : Theme::color(Token::Success);
     p.setBrush(c);
-    p.drawRoundedRect(QRectF(r.x(), r.y(), r.width() * m_level, r.height()), 4, 4);
+    if (m_level > 0.01f)
+        p.drawRoundedRect(QRectF(r.x(), r.y(), std::max(6.0, r.width() * m_level), r.height()), 3, 3);
     p.setBrush(Theme::color(Token::Muted));
     p.drawRect(QRectF(r.x() + r.width() * m_hold - 1, r.y(), 2, r.height()));
 }
@@ -196,6 +199,131 @@ void Waveform::mouseMoveEvent(QMouseEvent *e)
         if (std::abs(m.first - t) < m_duration / std::max(1, width()) * 4)
             tip += "\n" + m.second;
     QToolTip::showText(e->globalPosition().toPoint(), tip, this);
+}
+
+ToggleSwitch::ToggleSwitch(const QString &text, QWidget *parent) : QCheckBox(text, parent)
+{
+    setCursor(Qt::PointingHandCursor);
+    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    m_anim.setDuration(140);
+    m_anim.setEasingCurve(QEasingCurve::OutCubic);
+    connect(&m_anim, &QVariantAnimation::valueChanged, this, [this](const QVariant &v) {
+        m_pos = v.toDouble();
+        update();
+    });
+}
+
+void ToggleSwitch::checkStateSet()
+{
+    QCheckBox::checkStateSet();
+    m_anim.stop();
+    m_pos = isChecked() ? 1 : 0;
+    update();
+}
+
+void ToggleSwitch::nextCheckState()
+{
+    QCheckBox::nextCheckState();
+    m_anim.stop();
+    m_anim.setStartValue(m_pos);
+    m_anim.setEndValue(isChecked() ? 1.0 : 0.0);
+    m_anim.start();
+}
+
+QSize ToggleSwitch::sizeHint() const
+{
+    const QFontMetrics fm(font());
+    return {fm.horizontalAdvance(text()) + 60, std::max(28, fm.height() + 8)};
+}
+
+void ToggleSwitch::paintEvent(QPaintEvent *)
+{
+    QPainter p(this);
+    p.setRenderHint(QPainter::Antialiasing);
+    const QRectF track(width() - 40, (height() - 22) / 2.0, 38, 22);
+    QColor on = Theme::color(Token::Accent), off = Theme::isDark() ? Theme::color(Token::Border).lighter(130)
+                                                                    : Theme::color(Token::Border).darker(112);
+    auto mix = [](const QColor &a, const QColor &b, double t) {
+        return QColor::fromRgbF(a.redF() + (b.redF() - a.redF()) * t, a.greenF() + (b.greenF() - a.greenF()) * t,
+                                a.blueF() + (b.blueF() - a.blueF()) * t);
+    };
+    QColor trackColor = mix(off, on, m_pos);
+    if (!isEnabled())
+        trackColor.setAlphaF(0.45);
+    p.setPen(Qt::NoPen);
+    p.setBrush(trackColor);
+    p.drawRoundedRect(track, 11, 11);
+    const double d = 16;
+    const QRectF knob(track.x() + 3 + (track.width() - d - 6) * m_pos, track.y() + 3, d, d);
+    p.setBrush(QColor(255, 255, 255));
+    p.drawEllipse(knob);
+    if (hasFocus()) {
+        p.setPen(QPen(Theme::color(Token::Accent), 1.5));
+        p.setBrush(Qt::NoBrush);
+        p.drawRoundedRect(track.adjusted(-2.5, -2.5, 2.5, 2.5), 13, 13);
+    }
+    p.setPen(isEnabled() ? palette().color(QPalette::WindowText) : Theme::color(Token::Muted));
+    p.setFont(font());
+    p.drawText(QRectF(0, 0, width() - 52, height()), Qt::AlignLeft | Qt::AlignVCenter | Qt::TextSingleLine,
+               fontMetrics().elidedText(text(), Qt::ElideRight, width() - 52));
+}
+
+QSize TwoLineDelegate::sizeHint(const QStyleOptionViewItem &opt, const QModelIndex &index) const
+{
+    if (index.data(Qt::AccessibleDescriptionRole).toString() == QLatin1String("separator"))
+        return {opt.rect.width(), 9};
+    const bool two = !index.data(Qt::UserRole + 1).toString().isEmpty();
+    const int h = opt.fontMetrics.height();
+    return {opt.rect.width(), two ? 2 * h + 18 : h + 18};
+}
+
+void TwoLineDelegate::paint(QPainter *p, const QStyleOptionViewItem &opt, const QModelIndex &index) const
+{
+    p->save();
+    p->setRenderHint(QPainter::Antialiasing);
+    if (index.data(Qt::AccessibleDescriptionRole).toString() == QLatin1String("separator")) {
+        p->setPen(QPen(Theme::color(Token::Border), 1));
+        const int y = opt.rect.center().y();
+        p->drawLine(opt.rect.left() + 8, y, opt.rect.right() - 8, y);
+        p->restore();
+        return;
+    }
+    const QRectF r = QRectF(opt.rect).adjusted(2, 1, -2, -1);
+    if (opt.state & (QStyle::State_Selected | QStyle::State_MouseOver)) {
+        p->setPen(Qt::NoPen);
+        p->setBrush(Theme::color(Token::AccentSoft));
+        p->drawRoundedRect(r, 7, 7);
+    }
+    int x = int(r.x()) + 10;
+    const QIcon ic = index.data(Qt::DecorationRole).value<QIcon>();
+    if (!ic.isNull()) {
+        ic.paint(p, QRect(x, int(r.center().y()) - 10, 20, 20));
+        x += 30;
+    }
+    const QString title = index.data(Qt::DisplayRole).toString();
+    const QString detail = index.data(Qt::UserRole + 1).toString();
+    const int w = int(r.right()) - x - 10;
+    QFont f = opt.font;
+    p->setPen(Theme::color(Token::Text));
+    if (detail.isEmpty()) {
+        p->setFont(f);
+        p->drawText(QRect(x, int(r.y()), w, int(r.height())), Qt::AlignVCenter | Qt::AlignLeft,
+                    opt.fontMetrics.elidedText(title, Qt::ElideRight, w));
+    } else {
+        const int h = opt.fontMetrics.height();
+        const int top = int(r.center().y()) - h - 1;
+        f.setWeight(QFont::DemiBold);
+        p->setFont(f);
+        p->drawText(QRect(x, top, w, h), Qt::AlignLeft | Qt::AlignVCenter,
+                    QFontMetrics(f).elidedText(title, Qt::ElideRight, w));
+        QFont small = opt.font;
+        small.setPointSizeF(small.pointSizeF() * 0.88);
+        p->setFont(small);
+        p->setPen(Theme::color(Token::Muted));
+        p->drawText(QRect(x, top + h + 2, w, h), Qt::AlignLeft | Qt::AlignVCenter,
+                    QFontMetrics(small).elidedText(detail, Qt::ElideRight, w));
+    }
+    p->restore();
 }
 
 QLabel *label(const QString &text, const char *objectName, QWidget *parent)

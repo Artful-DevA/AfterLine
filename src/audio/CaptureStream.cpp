@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 #include "audio/CaptureStream.h"
 
+#include <unistd.h>
+
 #include <pipewire/pipewire.h>
 #include "audio/PwCompat.h"
 #include <spa/param/audio/format-utils.h>
@@ -118,6 +120,7 @@ struct CaptureStream::Impl {
             // Keep our node scheduled so links made while a source is silent
             // deliver the moment it plays.
             PW_KEY_NODE_WANT_DRIVER, "true", nullptr);
+        pw_properties_setf(props, kOwnerKey, "%d", int(::getpid()));
         stream = pw_stream_new(graph().core(), "AfterLine capture", props);
         if (!stream) {
             if (error)

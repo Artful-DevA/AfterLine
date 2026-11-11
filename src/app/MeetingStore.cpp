@@ -70,6 +70,12 @@ const QSet<QString> &stopWords()
 bool MeetingInfo::hasComputerAudio() const { return QFileInfo(path(audio::Recorder::kComputerFile)).size() > 100; }
 bool MeetingInfo::hasMicrophoneAudio() const { return QFileInfo(path(audio::Recorder::kMicrophoneFile)).size() > 100; }
 bool MeetingInfo::hasTranscript() const { return QFileInfo::exists(path("transcript.json")); }
+
+bool MeetingInfo::transcriptIsEmpty() const
+{
+    Transcript t;
+    return hasTranscript() && t.load(path("transcript.json")) && t.isEmpty();
+}
 bool MeetingInfo::hasNotes() const { return QFileInfo::exists(path("notes.json")) || notesEdited(); }
 bool MeetingInfo::notesEdited() const { return QFileInfo::exists(path("notes.md")); }
 

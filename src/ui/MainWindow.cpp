@@ -17,6 +17,7 @@
 
 #include <QApplication>
 #include <QCloseEvent>
+#include <QGridLayout>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
@@ -51,14 +52,19 @@ MainWindow::MainWindow(AppContext ctx, QWidget *parent) : QMainWindow(parent), m
     split->setSizes({300, 900});
     setCentralWidget(split);
 
-    // Home: empty state that invites a first recording.
+    // Home: empty state that invites a recording.
     m_home = new QWidget;
-    auto *hv = new QVBoxLayout(m_home);
-    hv->addStretch();
+    auto *homeLayout = new QGridLayout(m_home);
+    auto *box = new QWidget;
+    box->setMaximumWidth(640);
+    box->setMinimumWidth(540);
+    auto *hv = new QVBoxLayout(box);
+    hv->setSpacing(10);
     auto *logo = new QLabel;
-    logo->setPixmap(QIcon(":/icons/afterline.svg").pixmap(72, 72));
+    logo->setPixmap(QIcon(":/icons/afterline.svg").pixmap(68, 68));
     logo->setAlignment(Qt::AlignCenter);
     hv->addWidget(logo);
+    hv->addSpacing(6);
     auto *t = label(tr("Conversations, kept."), "PageTitle");
     t->setAlignment(Qt::AlignCenter);
     hv->addWidget(t);
@@ -68,13 +74,41 @@ MainWindow::MainWindow(AppContext ctx, QWidget *parent) : QMainWindow(parent), m
     hv->addWidget(sub);
     auto *start = new QPushButton(icon("record", Theme::color(Token::OnAccent)), tr("Start a recording"));
     start->setObjectName("RecordButton");
+    start->setCursor(Qt::PointingHandCursor);
     auto *sr = new QHBoxLayout;
     sr->addStretch();
     sr->addWidget(start);
     sr->addStretch();
-    hv->addSpacing(10);
+    hv->addSpacing(12);
     hv->addLayout(sr);
-    hv->addStretch(2);
+    auto *hint = label(tr("or press Ctrl+R"), "Muted");
+    hint->setAlignment(Qt::AlignCenter);
+    hv->addWidget(hint);
+    hv->addSpacing(26);
+    auto *steps = new QHBoxLayout;
+    steps->setSpacing(12);
+    const QList<std::tuple<QString, QString, QString>> stepList = {
+        {"record", tr("Record"), tr("Any app or the whole computer, with your microphone on its own track.")},
+        {"transcript", tr("Transcribe"), tr("Live while you talk, then a careful transcript when you stop.")},
+        {"notes", tr("Notes"), tr("Summary, decisions and action items, each linked to the moment it was said.")},
+    };
+    for (const auto &[ic, title, text] : stepList) {
+        auto *c = new QWidget;
+        c->setObjectName("Card");
+        c->setAttribute(Qt::WA_StyledBackground);
+        auto *cv = new QVBoxLayout(c);
+        cv->setContentsMargins(16, 14, 16, 16);
+        cv->setSpacing(6);
+        auto *i = new QLabel;
+        i->setPixmap(icon(ic, Theme::color(Token::Accent)).pixmap(20, 20));
+        cv->addWidget(i);
+        cv->addWidget(label(title, "SectionTitle"));
+        cv->addWidget(label(text, "Muted"));
+        cv->addStretch();
+        steps->addWidget(c, 1);
+    }
+    hv->addLayout(steps);
+    homeLayout->addWidget(box, 0, 0, Qt::AlignCenter);
     connect(start, &QPushButton::clicked, this, &MainWindow::showRecord);
 
     m_record = new RecordView(ctx);
@@ -264,6 +298,11 @@ void MainWindow::showHome()
     m_meeting->closeMeeting();
     m_library->select({});
     m_pages->setCurrentWidget(m_home);
+}
+
+QString MainWindow::currentMeetingId() const
+{
+    return m_pages->currentWidget() == m_meeting ? m_meeting->meetingId() : QString();
 }
 
 void MainWindow::bringToFront()

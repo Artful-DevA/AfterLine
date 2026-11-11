@@ -34,6 +34,8 @@ QString Settings::theme() const { return m_s.value("ui/theme", "system").toStrin
 void Settings::setTheme(const QString &t) { m_s.setValue("ui/theme", t); }
 bool Settings::closeToTray() const { return m_s.value("ui/closeToTray", true).toBool(); }
 void Settings::setCloseToTray(bool on) { m_s.setValue("ui/closeToTray", on); }
+bool Settings::liveTranscript() const { return m_s.value("processing/liveTranscript", true).toBool(); }
+void Settings::setLiveTranscript(bool on) { m_s.setValue("processing/liveTranscript", on); }
 bool Settings::includeMicrophone() const { return m_s.value("recording/includeMicrophone", true).toBool(); }
 void Settings::setIncludeMicrophone(bool on) { m_s.setValue("recording/includeMicrophone", on); }
 QString Settings::lastSource() const { return m_s.value("recording/source").toString(); }

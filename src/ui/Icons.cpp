@@ -3,6 +3,13 @@
 
 #include "ui/Theme.h"
 
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <QStandardPaths>
+
+#include <unistd.h>
+
 #include <QHash>
 #include <QIconEngine>
 #include <QPainter>
@@ -50,6 +57,9 @@ const QHash<QString, QString> &shapes()
         {"notes", "<path d='M5 4h14v16H5z'/><path d='M8 8h8M8 12h8M8 16h5'/>"},
         {"transcript", "<path d='M4 6h3M10 6h10M4 12h3M10 12h10M4 18h3M10 18h7'/>"},
         {"waveform", "<path d='M3 12h2M7 8v8M11 4v16M15 7v10M19 10v4M21 12h0'/>"},
+        {"chevron-down", "<path d='m6 9 6 6 6-6'/>"},
+        {"chevron-right", "<path d='m9 6 6 6-6 6'/>"},
+        {"sparkle", "<path d='M12 3v4M12 17v4M3 12h4M17 12h4M6.3 6.3l2.5 2.5M15.2 15.2l2.5 2.5M6.3 17.7l2.5-2.5M15.2 8.8l2.5-2.5'/>"},
         {"lock", "<rect x='5' y='11' width='14' height='9' rx='2'/><path d='M8 11V8a4 4 0 0 1 8 0v3'/>"},
     };
     return s;
@@ -98,6 +108,27 @@ private:
 }  // namespace
 
 QIcon icon(const QString &name, const QColor &color) { return QIcon(new SvgEngine(name, color)); }
+
+QString iconFile(const QString &name, const QColor &color, double strokeWidth)
+{
+    // Style sheets take image files: write the tinted SVG once to a private
+    // runtime directory.
+    QString dir = QStandardPaths::writableLocation(QStandardPaths::RuntimeLocation);
+    if (dir.isEmpty())
+        dir = QDir::tempPath();
+    dir += QString("/afterline-icons-%1").arg(::getuid());
+    QDir().mkpath(dir);
+    QFile::setPermissions(dir, QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner);
+    const QString path = QString("%1/%2-%3-%4.svg").arg(dir, name, color.name().mid(1)).arg(int(strokeWidth * 10));
+    if (!QFileInfo::exists(path)) {
+        QByteArray svg = svgFor(name, color);
+        svg.replace("stroke-width='1.8'", QString("stroke-width='%1'").arg(strokeWidth).toUtf8());
+        QFile f(path);
+        if (f.open(QIODevice::WriteOnly))
+            f.write(svg);
+    }
+    return path;
+}
 
 QIcon appIcon(const QString &themeName)
 {

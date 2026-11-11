@@ -177,6 +177,8 @@ QString LibraryModel::statusOf(const MeetingInfo &m) const
         return tr("Transcribing");
     if (m.notesState == "running" || m.notesState == "queued")
         return tr("Writing notes");
+    if (m.notesState == "failed" && m.transcriptState == "done" && m.transcriptIsEmpty())
+        return tr("No speech");
     if (m.transcriptState == "failed" || m.notesState == "failed")
         return tr("Failed");
     if (m.state == "interrupted" && !m.hasTranscript())
@@ -280,6 +282,7 @@ LibraryView::LibraryView(AppContext ctx, QWidget *parent) : QWidget(parent), m_c
     v->addWidget(m_record);
 
     m_search = new QLineEdit;
+    m_search->setObjectName("Search");
     m_search->setPlaceholderText(tr("Search meetings and transcripts"));
     m_search->addAction(icon("search", Theme::color(Token::Muted)), QLineEdit::LeadingPosition);
     m_search->setClearButtonEnabled(true);

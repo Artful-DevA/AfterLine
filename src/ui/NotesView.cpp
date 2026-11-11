@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: MIT
 #include "ui/NotesView.h"
 
+#include <QTextBlock>
+#include <QTextCursor>
+#include <QTextList>
+
 #include "core/Json.h"
 #include "core/Notes.h"
 #include "ui/Icons.h"
@@ -109,8 +113,28 @@ void NotesView::load(const MeetingInfo &meeting, const QString &emptyMessage, co
     const bool has = !m_markdown.isEmpty();
     if (has) {
         m_view->document()->setDefaultStyleSheet(
-            QString("a { color: %1; text-decoration: none; } h2 { margin-top: 18px; }").arg(Theme::hex(Token::Accent)));
+            QString("a { color: %1; text-decoration: none; } h1, h2 { margin-top: 22px; margin-bottom: 8px; } "
+                    "p { line-height: 145%; } li { margin-bottom: 6px; }")
+                .arg(Theme::hex(Token::Accent)));
+        m_view->document()->setDocumentMargin(20);
         m_view->setMarkdown(m_markdown);
+        // Markdown import sets its own block formats: give headings and list
+        // items room to breathe.
+        QTextCursor c(m_view->document());
+        c.beginEditBlock();
+        for (QTextBlock b = m_view->document()->begin(); b.isValid(); b = b.next()) {
+            QTextBlockFormat f = b.blockFormat();
+            if (f.headingLevel() > 0) {
+                f.setTopMargin(b == m_view->document()->begin() ? 0 : 20);
+                f.setBottomMargin(6);
+            } else {
+                f.setLineHeight(b.textList() ? 118 : 135, QTextBlockFormat::ProportionalHeight);
+                f.setBottomMargin(b.textList() ? 3 : 8);
+            }
+            c.setPosition(b.position());
+            c.setBlockFormat(f);
+        }
+        c.endEditBlock();
         m_stack->setCurrentIndex(0);
     } else {
         m_emptyText->setText(emptyMessage);

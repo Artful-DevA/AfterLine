@@ -22,6 +22,7 @@
 #include <QDesktopServices>
 #include <QDir>
 #include <QFileDialog>
+#include <QFile>
 #include <QHBoxLayout>
 #include <QInputDialog>
 #include <QLabel>
@@ -59,6 +60,9 @@ MeetingView::MeetingView(AppContext ctx, QWidget *parent) : QWidget(parent), m_c
     auto *head = new QHBoxLayout;
     m_title = new QLineEdit;
     m_title->setObjectName("TitleEdit");
+    // Not focused automatically when the page opens: it would look like an
+    // input box waiting for text.
+    m_title->setFocusPolicy(Qt::ClickFocus);
     m_title->setAccessibleName(tr("Meeting title"));
     head->addWidget(m_title, 1);
     auto *ask = new QPushButton(icon("ask"), tr("Ask"));
@@ -274,11 +278,17 @@ void MeetingView::reload()
     m_audio->load(m_meeting, duration);
     m_playerBar->setEnabled(m_player->duration() > 0);
 
-    m_transcript->load(m_meeting.path("transcript.json"));
+    if (!m_meeting.hasTranscript() && QFile::exists(m_meeting.path("live-transcript.json")))
+        m_transcript->load(m_meeting.path("live-transcript.json"), true);
+    else
+        m_transcript->load(m_meeting.path("transcript.json"));
     const ModelSpec *notesModel = findModel(m_ctx.settings->notesModel());
     QString empty, action;
     if (!m_meeting.hasTranscript()) {
         empty = tr("Notes are written from the transcript, once the meeting has been transcribed.");
+    } else if (m_meeting.transcriptIsEmpty()) {
+        empty = tr("No speech was found in this recording, so there are no notes. If people did speak, check in "
+                   "the Audio tab that the right source was recorded.");
     } else if (!notesModel || !notesModel->installed()) {
         empty = tr("To write notes, AfterLine needs its notes model (%1, downloaded once).")
                     .arg(notesModel ? formatBytes(notesModel->bytes) : QString());

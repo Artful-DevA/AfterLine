@@ -22,6 +22,10 @@ struct pw_context;
 
 namespace afterline::audio {
 
+// Property AfterLine puts on its own streams (value: its process id), so it
+// never offers or records itself.
+inline constexpr const char *kOwnerKey = "afterline.owner.pid";
+
 struct NodeInfo {
     uint32_t id = 0;
     uint64_t serial = 0;

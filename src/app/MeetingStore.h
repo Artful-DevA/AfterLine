@@ -51,6 +51,8 @@ struct MeetingInfo {
     bool hasMicrophoneAudio() const;
     bool hasAudio() const { return hasComputerAudio() || hasMicrophoneAudio(); }
     bool hasTranscript() const;
+    // Transcribed, but no speech was found (a silent recording).
+    bool transcriptIsEmpty() const;
     bool hasNotes() const;
     bool notesEdited() const;
     QJsonObject toJson() const;

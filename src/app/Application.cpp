@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 #include "app/Application.h"
 
+#include "app/LiveTranscriber.h"
 #include "app/MeetingStore.h"
 #include "app/ModelManager.h"
 #include "app/Processing.h"
@@ -20,6 +21,8 @@
 #include <QMessageBox>
 #include <QSystemTrayIcon>
 #include <QTimer>
+#include <QStyleHints>
+#include <QGuiApplication>
 
 #include <unistd.h>
 
@@ -30,6 +33,7 @@ Application::Application() = default;
 Application::~Application()
 {
     delete m_window;
+    delete m_ctx.live;
     delete m_ctx.recording;  // stops and saves any recording
     delete m_ctx.processing;
     delete m_ctx.models;
@@ -84,12 +88,15 @@ int Application::run(bool startHidden)
     m_ctx.models = new ModelManager;
     m_ctx.processing = new Processing(*m_ctx.store, *m_ctx.settings);
     m_ctx.recording = new RecordingController(*m_ctx.store);
+    m_ctx.live = new LiveTranscriber(*m_ctx.settings, *m_ctx.store);
 
     connect(m_ctx.recording, &RecordingController::recordingStarted, this, [this] {
         m_ctx.processing->setRecordingActive(true);
+        m_ctx.live->start(m_ctx.recording->meetingId());
         updateTray();
     });
     connect(m_ctx.recording, &RecordingController::recordingStopped, this, [this](const QString &id) {
+        m_ctx.live->stop();
         m_ctx.processing->setRecordingActive(false);
         updateTray();
         if (m_ctx.settings->autoTranscribe())
@@ -114,27 +121,14 @@ int Application::run(bool startHidden)
                     notify(kind == Processing::Kind::Transcript ? tr("Transcript ready") : tr("Notes ready"), title);
             });
 
-    m_window = new ui::MainWindow(m_ctx);
-    connect(m_window, &ui::MainWindow::themeChanged, this, [this] {
-        ui::Theme::apply(*qApp, m_ctx.settings->theme());
-        // Rebuild the window so custom-painted parts pick up the palette.
-        const QByteArray geometry = m_window->saveGeometry();
-        m_window->deleteLater();
-        m_window = new ui::MainWindow(m_ctx);
-        m_window->restoreGeometry(geometry);
-        connect(m_window, &ui::MainWindow::hiddenToTray, this, [this] {
-            if (m_ctx.recording->recording())
-                notify(tr("Still recording"), tr("AfterLine keeps recording in the background."));
-        });
-        m_window->show();
-        m_window->showSettings();
-        updateTray();
+    createWindow();
+    // Follow the desktop's light/dark setting live when the theme is "system".
+#if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
+    connect(QGuiApplication::styleHints(), &QStyleHints::colorSchemeChanged, this, [this] {
+        if (m_ctx.settings->theme() == "system")
+            applyTheme(false);
     });
-    connect(m_window, &ui::MainWindow::hiddenToTray, this, [this] {
-        if (m_ctx.recording->recording())
-            notify(tr("Still recording"), tr("AfterLine keeps recording in the background. Use the tray icon to "
-                                             "stop or return."));
-    });
+#endif
     setupTray();
     if (!startHidden || !m_tray)
         m_window->show();
@@ -173,6 +167,40 @@ int Application::run(bool startHidden)
             m_ctx.recording->stop();
     });
     return qApp->exec();
+}
+
+void Application::createWindow()
+{
+    m_window = new ui::MainWindow(m_ctx);
+    connect(m_window, &ui::MainWindow::themeChanged, this, [this] { applyTheme(true); });
+    connect(m_window, &ui::MainWindow::hiddenToTray, this, [this] {
+        if (m_ctx.recording->recording())
+            notify(tr("Still recording"), tr("AfterLine keeps recording in the background. Use the tray icon to "
+                                             "stop or return."));
+    });
+}
+
+void Application::applyTheme(bool fromSettings)
+{
+    ui::Theme::apply(*qApp, m_ctx.settings->theme());
+    // Rebuild the window so custom-painted parts and icons pick up the new
+    // palette. Recording, processing and downloads live outside the window
+    // and are not affected.
+    ui::MainWindow *old = m_window;
+    const QByteArray geometry = old->saveGeometry();
+    const bool visible = old->isVisible();
+    const QString meeting = old->currentMeetingId();
+    createWindow();
+    m_window->restoreGeometry(geometry);
+    if (fromSettings)
+        m_window->showSettings();
+    else if (!meeting.isEmpty())
+        m_window->showMeeting(meeting);
+    if (visible)
+        m_window->show();
+    old->hide();
+    old->deleteLater();
+    updateTray();
 }
 
 void Application::setupTray()

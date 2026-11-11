@@ -18,6 +18,8 @@
 #include <whisper.h>
 
 #include <QCoreApplication>
+#include <QElapsedTimer>
+#include <QThread>
 #include <QDateTime>
 #include <QFile>
 #include <QFileInfo>
@@ -31,6 +33,10 @@
 #include <algorithm>
 #include <cmath>
 #include <map>
+
+#include <csignal>
+#include <sys/prctl.h>
+#include <unistd.h>
 
 using namespace engine;
 
@@ -394,11 +400,180 @@ std::vector<std::pair<size_t, size_t>> speechWindows(whisper_vad_context *vad, c
     return out;
 }
 
+// ---------------------------------------------------------------------------
+// Live mode: a preliminary transcript while the meeting is being recorded.
+// The tracks are files that keep growing; every moment of speech is
+// transcribed once it has ended (or once it has run on for ~25 s). The full,
+// careful transcript is still made after the recording stops.
+
+struct LiveTrack {
+    Track track;
+    double done = 0;  // seconds already transcribed (or known to be silent)
+    std::vector<Segment> recent;
+};
+
+bool liveIsEcho(const Segment &m, const std::vector<Segment> &computer)
+{
+    const QStringList mic = wordsOf(m.text);
+    if (mic.isEmpty())
+        return true;
+    QSet<QString> heard;
+    for (const auto &c : computer)
+        if (c.start < m.end + 2.0 && m.start < c.end + 2.0)
+            for (const auto &w : wordsOf(c.text))
+                heard.insert(w);
+    int matched = 0;
+    for (const auto &w : mic)
+        matched += heard.contains(w);
+    return double(matched) / double(mic.size()) >= 0.8;
+}
+
+int runLive(whisper_context *ctx, whisper_vad_context *vad, whisper_full_params params, std::vector<Track> tracks)
+{
+    std::vector<LiveTrack> live;
+    for (const auto &t : tracks)
+        live.push_back({t, 0, {}});
+    std::map<QString, int> votes;
+    double lastRunSeconds = 0;  // how long the previous recognition took
+    // Detecting the language costs a pass of its own: once the first
+    // sentences are in, keep the language they were in.
+    const bool autoLanguage = QString::fromLatin1(params.language) == "auto";
+    QByteArray fixedLanguage;
+    // whisper always encodes 30 s; a short phrase only needs a fraction of
+    // that context, which makes live recognition several times faster.
+    auto recognise = [&](std::vector<float> &piece) {
+        if (piece.size() < size_t(kRate) + 1600)
+            piece.resize(size_t(kRate) + 1600, 0.f);
+        whisper_full_params p = params;
+        const double seconds = double(piece.size()) / kRate;
+        p.audio_ctx = seconds < 27 ? std::min(1500, int(std::ceil((seconds + 2.0) / 30.0 * 1500))) : 0;
+        if (!fixedLanguage.isEmpty())
+            p.language = fixedLanguage.constData();
+        return whisper_full(ctx, p, piece.data(), int(piece.size())) == 0;
+    };
+    emitEvent({{"type", "ready"}});
+    while (!g_abort) {
+        // Wait between passes; react to a stop request within 100 ms.
+        for (int i = 0; i < 15 && !g_abort; ++i)
+            QThread::msleep(100);
+        if (g_abort)
+            break;
+        if (::getppid() == 1)
+            break;  // the app is gone
+        std::vector<Segment> computerRecent;
+        for (auto &lt : live)
+            if (lt.track.source == "computer")
+                computerRecent = lt.recent;
+        for (auto &lt : live) {
+            if (g_abort)
+                break;
+            std::string err;
+            const auto info = afterline::probeOggOpus(lt.track.path.toStdString(), &err);
+            if (!info.valid)
+                continue;
+            const double available = info.seconds();
+            if (available - lt.done < 2.0)
+                continue;
+            auto pcm = afterline::decodeOggOpus(lt.track.path.toStdString(), kRate, &err, lt.done,
+                                                available - lt.done);
+            if (pcm.empty())
+                continue;
+            const double bufferSeconds = double(pcm.size()) / kRate;
+            if (rmsOf(pcm, 0, pcm.size()) < 2e-4) {
+                // Silence: nothing to transcribe, keep a little overlap.
+                if (bufferSeconds > 4)
+                    lt.done += bufferSeconds - 1.0;
+                continue;
+            }
+            auto windows = speechWindows(vad, pcm);
+            if (!vad) {
+                windows.clear();
+                if (bufferSeconds >= 8)
+                    windows.push_back({0, pcm.size()});
+            }
+            double newDone = -1;
+            if (qEnvironmentVariableIsSet("AFTERLINE_LIVE_DEBUG")) {
+                std::fprintf(stderr, "cycle %s done=%.1f buffer=%.1f windows:", qPrintable(lt.track.source), lt.done,
+                             bufferSeconds);
+                for (const auto &w : windows)
+                    std::fprintf(stderr, " %.1f-%.1f", double(w.first) / kRate, double(w.second) / kRate);
+                std::fprintf(stderr, "\n");
+            }
+            for (const auto &w : windows) {
+                if (g_abort)
+                    break;
+                const double wEnd = double(w.second) / kRate;
+                const double wLen = double(w.second - w.first) / kRate;
+                // Speech that may still be going on waits, unless it is long.
+                const bool finished = wEnd < bufferSeconds - 0.8 || wLen >= 25.0 || !vad;
+                if (!finished) {
+                    // A preview of the sentence being spoken, when the
+                    // computer keeps up comfortably.
+                    const double backlog = bufferSeconds - wEnd + wLen;
+                    if (wLen >= 3.0 && lastRunSeconds < 1.5 && backlog < 10) {
+                        std::vector<float> piece(pcm.begin() + long(w.first), pcm.end());
+                        if (recognise(piece)) {
+                            QString text;
+                            for (int i = 0; i < whisper_full_n_segments(ctx); ++i)
+                                text += QString::fromUtf8(whisper_full_get_segment_text(ctx, i));
+                            text = text.trimmed();
+                            if (!isNoise(text, 0))
+                                emitEvent({{"type", "partial"}, {"source", lt.track.source}, {"text", text}});
+                        }
+                    }
+                    break;
+                }
+                std::vector<float> piece(pcm.begin() + long(w.first), pcm.begin() + long(w.second));
+                QElapsedTimer timer;
+                timer.start();
+                if (!recognise(piece))
+                    break;
+                lastRunSeconds = timer.elapsed() / 1000.0;
+                std::fprintf(stderr, "live: %s %.1f s of speech in %.1f s\n", qPrintable(lt.track.source), wLen,
+                             lastRunSeconds);
+                const QString detected = QString::fromLatin1(whisper_lang_str(whisper_full_lang_id(ctx)));
+                if (autoLanguage && fixedLanguage.isEmpty()) {
+                    int letters = 0;
+                    for (const auto &v : votes)
+                        letters += v.second;
+                    if (letters > 60) {
+                        auto best = std::max_element(votes.begin(), votes.end(),
+                                                     [](const auto &a, const auto &b) { return a.second < b.second; });
+                        fixedLanguage = best->first.toLatin1();
+                    }
+                }
+                const double offset = lt.done + double(w.first) / kRate;
+                std::vector<Segment> found;
+                appendSentences(ctx, offset, offset + wLen, lt.track.source, detected, found, votes);
+                for (const auto &seg : found) {
+                    if (seg.source == "microphone" && liveIsEcho(seg, computerRecent))
+                        continue;
+                    lt.recent.push_back(seg);
+                    emitEvent({{"type", "segment"}, {"start", seg.start}, {"end", seg.end},
+                               {"source", seg.source}, {"text", seg.text}});
+                }
+                if (found.empty())
+                    emitEvent({{"type", "partial"}, {"source", lt.track.source}, {"text", QString()}});
+                newDone = wEnd;
+            }
+            if (newDone > 0)
+                lt.done += newDone;
+            else if (windows.empty() && bufferSeconds > 6)
+                lt.done += bufferSeconds - 1.5;  // no speech in this stretch
+            // Keep only the last minute for the echo check.
+            while (!lt.recent.empty() && lt.recent.front().end < lt.done - 60)
+                lt.recent.erase(lt.recent.begin());
+        }
+    }
+    return 0;
+}
+
 void usage()
 {
     std::fputs("usage: afterline-transcriber --model FILE --track SOURCE=FILE... --output FILE\n"
                "       [--vad FILE] [--language CODE|auto] [--threads N] [--quality fast|balanced|accurate]\n"
-               "       [--resume] [--gpu]\n", stderr);
+               "       [--resume] [--gpu]\n"
+               "       afterline-transcriber --live --model FILE --track SOURCE=FILE... [options]\n", stderr);
 }
 
 }  // namespace
@@ -411,7 +586,7 @@ int main(int argc, char **argv)
 
     QString modelPath, vadPath, output, language = "auto", quality = "balanced";
     int threads = defaultThreads();
-    bool resume = false, gpu = false;
+    bool resume = false, gpu = false, live = false;
     std::vector<Track> tracks;
     const QStringList args = app.arguments();
     for (int i = 1; i < args.size(); ++i) {
@@ -431,6 +606,7 @@ int main(int argc, char **argv)
         else if (a == "--quality") quality = next();
         else if (a == "--resume") resume = true;
         else if (a == "--gpu") gpu = true;
+        else if (a == "--live") live = true;
         else if (a == "--track") {
             const QString v = next();
             const int eq = v.indexOf('=');
@@ -441,7 +617,12 @@ int main(int argc, char **argv)
             return 0;
         } else { usage(); return 2; }
     }
-    if (modelPath.isEmpty() || output.isEmpty() || tracks.empty()) {
+    if (live) {
+        // Stop with the app, even if it is killed.
+        ::prctl(PR_SET_PDEATHSIG, SIGTERM);
+        quality = "fast";
+    }
+    if (modelPath.isEmpty() || (output.isEmpty() && !live) || tracks.empty()) {
         usage();
         return 2;
     }
@@ -450,6 +631,11 @@ int main(int argc, char **argv)
     // other one may still hold the meeting.
     QStringList warnings;
     double total = 0;
+    if (live) {
+        total = 1;
+        tracks.erase(std::remove_if(tracks.begin(), tracks.end(), [](const Track &t) { return t.path.isEmpty(); }),
+                     tracks.end());
+    } else
     for (auto &t : tracks) {
         std::string err;
         const auto info = afterline::probeOggOpus(t.path.toStdString(), &err);
@@ -522,9 +708,20 @@ int main(int argc, char **argv)
         if (!vad)
             std::fputs("speech detection model could not be loaded; continuing without it\n", stderr);
     }
+    params.abort_callback = onAbort;
+    params.abort_callback_user_data = nullptr;
+    if (live) {
+        params.no_context = true;
+        params.single_segment = false;
+        params.greedy.best_of = 1;
+        const int rc = runLive(ctx, vad, params, tracks);
+        whisper_free(ctx);
+        if (vad)
+            whisper_vad_free(vad);
+        return rc;
+    }
     ProgressState state;
     state.total = total;
-    params.abort_callback = onAbort;
     params.abort_callback_user_data = nullptr;
 
     auto savePartial = [&]() {

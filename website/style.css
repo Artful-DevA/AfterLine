@@ -1,25 +1,25 @@
 /* AfterLine website. Warm cream, charcoal and terracotta, like the app. */
 :root {
-  --paper: #f7f3ec;
-  --surface: #fffcf7;
-  --ink: #292522;
-  --muted: #6f655b;
-  --accent: #b85b3f;
-  --accent-hover: #9b4730;
-  --accent-soft: #f3dfd4;
-  --line: #e0d6c8;
+  --paper: #efe7db;
+  --surface: #fcf8f2;
+  --ink: #27211d;
+  --muted: #665b50;
+  --accent: #b4553a;
+  --accent-hover: #9c4730;
+  --accent-soft: #f0d9cc;
+  --line: #d6c9b7;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --paper: #1c1714;
-    --surface: #25201c;
-    --ink: #efe7dd;
-    --muted: #b3a496;
-    --accent: #d9805f;
-    --accent-hover: #e4927a;
-    --accent-soft: #4a2f25;
-    --line: #3e342d;
+    --paper: #2b2420;
+    --surface: #362e28;
+    --ink: #f3ebe1;
+    --muted: #c1b2a3;
+    --accent: #e08c6b;
+    --accent-hover: #eba085;
+    --accent-soft: #5c3d31;
+    --line: #4d423a;
     color-scheme: dark;
   }
 }
@@ -55,7 +55,7 @@ h3 { font-size: 19px; margin: 0 0 8px; letter-spacing: -.01em; }
 .button { display: inline-flex; align-items: center; padding: 15px 24px; border-radius: 10px; font-weight: 700; font-size: 15px; text-decoration: none; }
 .primary { background: var(--accent); color: #fff; }
 .primary:hover { background: var(--accent-hover); }
-@media (prefers-color-scheme: dark) { .primary { color: #1c1714; } }
+@media (prefers-color-scheme: dark) { .primary { color: #241e1a; } }
 .secondary { border: 1px solid var(--line); }
 .secondary:hover { border-color: var(--accent); }
 .fine { font-size: 13px; color: var(--muted); margin-top: 20px; }
@@ -81,7 +81,7 @@ figcaption { font-size: 13px; color: var(--muted); margin-top: 12px; text-align:
 .distro p { margin: -6px 0 6px; color: var(--muted); font-size: 14px; }
 .dl { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 11px 14px; border-radius: 9px;
   background: var(--accent); color: #fff; font-weight: 700; font-size: 15px; text-decoration: none; }
-@media (prefers-color-scheme: dark) { .dl { color: #1c1714; } }
+@media (prefers-color-scheme: dark) { .dl { color: #241e1a; } }
 .dl span { font-weight: 500; opacity: .85; font-size: 13px; }
 .dl:hover { background: var(--accent-hover); }
 .dl.unavailable { background: transparent; color: var(--muted); border: 1px dashed var(--line); cursor: not-allowed; }
