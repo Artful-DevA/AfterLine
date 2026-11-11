@@ -81,6 +81,16 @@ const ModelSpec *findModel(const QString &id)
     return nullptr;
 }
 
+QString friendlyModelName(const QString &recorded)
+{
+    for (const auto &m : modelCatalog()) {
+        const QString base = m.fileName.left(m.fileName.lastIndexOf('.'));
+        if (recorded == m.id || recorded == m.fileName || recorded == base)
+            return m.name;
+    }
+    return recorded;
+}
+
 const ModelSpec *findModelBySha256(const QString &sha256)
 {
     for (const auto &m : modelCatalog())

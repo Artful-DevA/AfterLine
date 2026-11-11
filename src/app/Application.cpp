@@ -9,6 +9,7 @@
 #include "app/Settings.h"
 #include "core/Paths.h"
 #include "core/Transcript.h"
+#include "ui/Dialogs.h"
 #include "ui/Icons.h"
 #include "ui/MainWindow.h"
 #include "ui/SetupDialog.h"
@@ -18,7 +19,6 @@
 #include <QLocalServer>
 #include <QLocalSocket>
 #include <QMenu>
-#include <QMessageBox>
 #include <QSystemTrayIcon>
 #include <QTimer>
 #include <QStyleHints>
@@ -77,8 +77,9 @@ int Application::run(bool startHidden)
     m_ctx.store = new MeetingStore;
     QString error;
     if (!m_ctx.store->open(meetingsDir(), databasePath(), &error)) {
-        QMessageBox::critical(nullptr, tr("AfterLine cannot start"),
-                              tr("The meeting library in %1 could not be opened: %2").arg(meetingsDir(), error));
+        ui::inform(nullptr, tr("AfterLine cannot start"),
+                   tr("The meeting library in %1 could not be opened: %2").arg(meetingsDir(), error), ui::Tone::Danger,
+                   "alert");
         return 1;
     }
     // Recordings cut short by a crash or power loss: their audio was written
@@ -136,11 +137,12 @@ int Application::run(bool startHidden)
     if (!recovered.isEmpty()) {
         QTimer::singleShot(300, m_window, [this, recovered] {
             m_window->showMeeting(recovered.first());
-            QMessageBox::information(
+            ui::inform(
                 m_window, tr("A recording was recovered"),
                 tr("AfterLine was closed unexpectedly while recording. The audio recorded until then was saved and "
                    "is available in your library (%n meeting(s)).",
-                   nullptr, int(recovered.size())));
+                   nullptr, int(recovered.size())),
+                ui::Tone::Info, "record");
             if (m_ctx.settings->autoTranscribe())
                 for (const auto &id : recovered)
                     m_ctx.processing->transcribe(id);
@@ -156,10 +158,11 @@ int Application::run(bool startHidden)
         });
     if (!m_ctx.recording->audioAvailable())
         QTimer::singleShot(400, m_window, [this] {
-            QMessageBox::warning(m_window, tr("Audio service not available"),
+            ui::inform(m_window, tr("Audio service not available"),
                                  tr("AfterLine could not connect to PipeWire, the system's audio service, so it cannot "
                                     "record. Your existing meetings are available.\n\n%1")
-                                     .arg(m_ctx.recording->audioError()));
+                                     .arg(m_ctx.recording->audioError()),
+                       ui::Tone::Warning, "speaker");
         });
 
     connect(qApp, &QApplication::aboutToQuit, this, [this] {

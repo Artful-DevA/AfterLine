@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 #include "ui/TranscriptView.h"
 
+#include "ui/Dialogs.h"
 #include "ui/Icons.h"
 #include "ui/Theme.h"
 #include "ui/Widgets.h"
@@ -12,7 +13,6 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QListView>
-#include <QMessageBox>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPlainTextEdit>
@@ -262,7 +262,7 @@ TranscriptView::TranscriptView(QWidget *parent) : QWidget(parent)
     connect(m_model, &TranscriptModel::edited, this, [this] {
         QString err;
         if (!m_model->transcript().save(m_path, &err))
-            QMessageBox::warning(this, tr("Could not save"), tr("The correction could not be saved: %1").arg(err));
+            inform(this, tr("Could not save"), tr("The correction could not be saved: %1").arg(err), Tone::Warning);
         Q_EMIT changed();
     });
     connect(m_find, &QLineEdit::textChanged, this, [this](const QString &q) {

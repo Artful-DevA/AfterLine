@@ -162,6 +162,24 @@ QToolButton::menu-indicator, QPushButton::menu-indicator { image: none; width: 0
 #Primary:hover { background: @accentHover; }
 #Primary:disabled { background: @border; color: @muted; }
 #Danger { color: @danger; }
+#UserBubble { background: @accent; border-radius: 14px; border-bottom-right-radius: 4px; }
+#UserBubbleText { color: @onAccent; }
+#AnswerBubble { background: @surface; border: 1px solid @border; border-radius: 14px; border-bottom-left-radius: 4px; }
+#SourceChip { background: @accentSoftTrans; color: @text; border: 0; border-radius: 8px; padding: 0 10px; min-height: 26px;
+  font-size: 9.5pt; text-align: left; }
+#SourceChip:hover { background: @accentSoft; }
+#SuggestionChip { background: @surface; border: 1px solid @border; border-radius: 10px; padding: 0 12px; min-height: 36px;
+  text-align: left; }
+#SuggestionChip:hover { border-color: @accent; }
+#Composer { background: @surface; border: 1px solid @border; border-radius: 12px; }
+#ComposerInput { border: 0; background: transparent; padding: 0 2px; }
+#SendButton { background: @accent; border: 0; border-radius: 9px; min-height: 34px; min-width: 34px; max-width: 34px; padding: 0; }
+#SendButton:hover { background: @accentHover; }
+#SendButton:disabled { background: @border; }
+#DialogCard { background: @surface; border: 1px solid @border; border-radius: 16px; }
+#DialogTitle { font-size: 13.5pt; font-weight: 650; }
+#DangerButton { background: @danger; color: #FFFFFF; border: 0; font-weight: 650; padding: 0 18px; min-height: 36px; }
+#DangerButton:hover { background: @dangerHover; }
 #RecordButton { background: @accent; color: @onAccent; border: 0; border-radius: 25px; font-size: 12pt;
   font-weight: 650; padding: 0 30px; min-height: 50px; }
 #RecordButton:hover { background: @accentHover; }
@@ -202,13 +220,15 @@ QSplitter::handle { background: @border; }
 QGroupBox { border: 0; margin-top: 18px; font-weight: 600; }
 QGroupBox::title { subcontrol-origin: margin; left: 0; padding: 0; }
 QDialog { background: @background; }
-QMessageBox QLabel { min-width: 300px; }
+
 )";
     const QColor warn = color(Token::Warning);
     QColor warnSoft = warn;
     warnSoft.setAlpha(28);
     QColor hover = color(Token::Text);
     hover.setAlpha(18);
+    QColor accentSoftTrans = color(Token::AccentSoft);
+    accentSoftTrans.setAlpha(150);
     QColor recSoft = color(Token::Recording);
     recSoft.setAlpha(isDark() ? 50 : 30);
     const QColor borderStrong = isDark() ? color(Token::Border).lighter(135) : color(Token::Border).darker(118);
@@ -224,9 +244,9 @@ QMessageBox QLabel { min-width: 300px; }
         {"@recording", hex(Token::Recording)},   {"@danger", hex(Token::Danger)},
         {"@warningSoft", rgba(warnSoft)},        {"@warning", hex(Token::Warning)},
         {"@hoverBg", rgba(hover)},               {"@text", hex(Token::Text)},
-        {"@borderStrong", borderStrong.name()},  {"@surfaceHover", surfaceHover.name()},
+        {"@borderStrong", borderStrong.name()},  {"@accentSoftTrans", rgba(accentSoftTrans)},  {"@surfaceHover", surfaceHover.name()},
         {"@recordingSoft", rgba(recSoft)},       {"@recordingHover", color(Token::Recording).darker(112).name()},
-        {"@background", hex(Token::Background)},
+        {"@background", hex(Token::Background)}, {"@dangerHover", color(Token::Danger).darker(112).name()},
         {"@chevron", iconFile("chevron-down", color(Token::Muted), 2.2)},
         {"@check", iconFile("check", color(Token::OnAccent), 3.0)},
     };

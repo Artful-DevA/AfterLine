@@ -26,11 +26,14 @@ Q_SIGNALS:
     void seekRequested(double seconds);
     void actionRequested();  // the empty state's button
     void changed();
+    void tasksChanged();
 
 private:
     void edit();
     void save();
     void revert();
+    bool eventFilter(QObject *o, QEvent *e) override;
+    void toggleTask(int index);
     MeetingInfo m_meeting;
     QString m_markdown;
     QStackedWidget *m_stack;

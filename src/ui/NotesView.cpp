@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: MIT
 #include "ui/NotesView.h"
 
-#include <QTextBlock>
-#include <QTextCursor>
-#include <QTextList>
 
+#include "app/ModelCatalog.h"
 #include "core/Json.h"
 #include "core/Notes.h"
+#include "ui/Dialogs.h"
 #include "ui/Icons.h"
 #include "ui/Theme.h"
 #include "ui/Widgets.h"
@@ -15,10 +14,15 @@
 #include <QHBoxLayout>
 #include <QJsonObject>
 #include <QLabel>
-#include <QMessageBox>
+#include <QJsonArray>
+#include <QMouseEvent>
 #include <QPlainTextEdit>
+#include <QRegularExpression>
+#include <QScrollBar>
 #include <QPushButton>
 #include <QStackedWidget>
+#include <QTextBlock>
+#include <QTextCursor>
 #include <QTextBrowser>
 #include <QVBoxLayout>
 
@@ -76,6 +80,8 @@ NotesView::NotesView(QWidget *parent) : QWidget(parent)
     m_stack->addWidget(empty);
     v->addWidget(m_stack, 1);
 
+    m_view->viewport()->installEventFilter(this);
+    m_view->viewport()->setMouseTracking(true);
     connect(m_view, &QTextBrowser::anchorClicked, this, [this](const QUrl &url) {
         const double t = parseTimeLink(url.toString());
         if (t >= 0)
@@ -99,13 +105,13 @@ void NotesView::load(const MeetingInfo &meeting, const QString &emptyMessage, co
         info = tr("Edited by you.");
     } else if (QFile::exists(meeting.path("notes.json"))) {
         const MeetingNotes n = loadNotes(meeting.path("notes.json"));
-        m_markdown = notesToMarkdown(n);
+        m_markdown = notesToMarkdown(n, true, loadDoneTasks(meeting.path("tasks.json")));
         const QJsonObject checks = n.data["checks"].toObject();
         const int removed = checks["unsupportedItemsRemoved"].toInt() + checks["ownersCleared"].toInt() +
                             checks["deadlinesCleared"].toInt();
         info = tr("Written on this computer by %1. Every item links to the moment it was said; check anything "
                   "important against the transcript.")
-                   .arg(n.data["model"].toString());
+                   .arg(friendlyModelName(n.data["model"].toString()));
         if (removed > 0)
             info += " " + tr("%n detail(s) the transcript did not support were left out.", nullptr, removed);
     }
@@ -148,6 +154,72 @@ void NotesView::load(const MeetingInfo &meeting, const QString &emptyMessage, co
     m_cancel->hide();
 }
 
+// Action items are Markdown task-list entries: a click on the box ticks
+// the item off (kept in tasks.json, or in your edited notes).
+bool NotesView::eventFilter(QObject *o, QEvent *e)
+{
+    if (o != m_view->viewport() || (e->type() != QEvent::MouseButtonPress && e->type() != QEvent::MouseMove))
+        return QWidget::eventFilter(o, e);
+    const QPoint pos = static_cast<QMouseEvent *>(e)->position().toPoint();
+    const QTextCursor c = m_view->cursorForPosition(pos);
+    const QTextBlock block = c.block();
+    int index = -1;
+    if (block.blockFormat().marker() != QTextBlockFormat::MarkerType::NoMarker) {
+        QTextCursor start(block);
+        const int textLeft = m_view->cursorRect(start).left();
+        const QRect line = m_view->cursorRect(start);
+        if (pos.x() < textLeft && pos.x() > textLeft - 34 && pos.y() >= line.top() - 4 && pos.y() <= line.bottom() + 4) {
+            index = 0;
+            for (QTextBlock b = m_view->document()->begin(); b.isValid() && b != block; b = b.next())
+                index += b.blockFormat().marker() != QTextBlockFormat::MarkerType::NoMarker;
+        }
+    }
+    if (e->type() == QEvent::MouseMove) {
+        if (index >= 0)
+            m_view->viewport()->setCursor(Qt::PointingHandCursor);
+        else if (m_view->anchorAt(pos).isEmpty())
+            m_view->viewport()->unsetCursor();
+        return false;
+    }
+    if (index < 0)
+        return false;
+    toggleTask(index);
+    return true;
+}
+
+void NotesView::toggleTask(int index)
+{
+    const int scroll = m_view->verticalScrollBar()->value();
+    if (m_meeting.notesEdited()) {
+        static const QRegularExpression box(R"(^(\s*[-*+] )\[( |x|X)\])", QRegularExpression::MultilineOption);
+        auto it = box.globalMatch(m_markdown);
+        for (int i = 0; it.hasNext(); ++i) {
+            const auto m = it.next();
+            if (i != index)
+                continue;
+            const bool checked = m.captured(2) != " ";
+            m_markdown.replace(m.capturedStart(2), 1, checked ? " " : "x");
+            QString err;
+            writeTextFile(m_meeting.path("notes.md"), m_markdown, &err);
+            break;
+        }
+    } else {
+        const QJsonArray items = loadNotes(m_meeting.path("notes.json")).data["action_items"].toArray();
+        if (index >= items.size())
+            return;
+        const QString task = items[index].toObject()["task"].toString();
+        QSet<QString> done = loadDoneTasks(m_meeting.path("tasks.json"));
+        if (done.contains(task))
+            done.remove(task);
+        else
+            done.insert(task);
+        saveDoneTasks(m_meeting.path("tasks.json"), done);
+    }
+    load(m_meeting, m_emptyText->text(), m_emptyAction->text());
+    m_view->verticalScrollBar()->setValue(scroll);
+    Q_EMIT tasksChanged();
+}
+
 void NotesView::edit()
 {
     // Edit the version without internal links: plain timestamps read better.
@@ -167,7 +239,7 @@ void NotesView::save()
 {
     QString err;
     if (!writeTextFile(m_meeting.path("notes.md"), m_editor->toPlainText(), &err)) {
-        QMessageBox::warning(this, tr("Could not save"), err);
+        inform(this, tr("Could not save"), err, Tone::Warning);
         return;
     }
     load(m_meeting, m_emptyText->text(), m_emptyAction->text());
@@ -176,9 +248,10 @@ void NotesView::save()
 
 void NotesView::revert()
 {
-    if (QMessageBox::question(this, tr("Restore generated notes?"),
-                              tr("Your edits to these notes will be discarded and the notes AfterLine generated "
-                                 "will be shown again.")) != QMessageBox::Yes)
+    if (!confirm(this, tr("Restore generated notes?"),
+                 tr("Your edits to these notes will be discarded and the notes AfterLine generated will be shown "
+                    "again."),
+                 tr("Restore"), Tone::Warning, "rewind"))
         return;
     QFile::remove(m_meeting.path("notes.md"));
     load(m_meeting, m_emptyText->text(), m_emptyAction->text());

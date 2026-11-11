@@ -5,6 +5,7 @@
 #include "app/MeetingStore.h"
 #include "app/Settings.h"
 #include "core/Transcript.h"
+#include "ui/Dialogs.h"
 #include "ui/Icons.h"
 #include "ui/Theme.h"
 #include "ui/Widgets.h"
@@ -15,7 +16,6 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
-#include <QMessageBox>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QScrollBar>
@@ -541,8 +541,8 @@ void RecordView::start()
             found = true;
         }
     if (!found) {
-        QMessageBox::warning(this, tr("Source not available"),
-                             tr("The selected source is no longer available. Choose another one."));
+        inform(this, tr("Source not available"), tr("The selected source is no longer available. Choose another one."),
+               Tone::Warning);
         reloadSources();
         return;
     }
@@ -560,7 +560,7 @@ void RecordView::start()
         m_ctx.settings->setLastMicrophone(mic.key);
     QString error;
     if (!m_ctx.recording->start(computer, withMic ? &mic : nullptr, &error)) {
-        QMessageBox::warning(this, tr("Could not start recording"), error);
+        inform(this, tr("Could not start recording"), error, Tone::Warning);
         reloadSources();
     }
 }

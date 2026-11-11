@@ -6,6 +6,7 @@
 #pragma once
 
 #include <QJsonObject>
+#include <QSet>
 #include <QString>
 
 namespace afterline {
@@ -21,7 +22,12 @@ struct MeetingNotes {
 MeetingNotes loadNotes(const QString &path);
 // Markdown with clickable timestamps; `links` false gives plain timestamps
 // (for export to other applications).
-QString notesToMarkdown(const MeetingNotes &notes, bool links = true);
+// `done`: action items (by their text) already ticked off.
+QString notesToMarkdown(const MeetingNotes &notes, bool links = true, const QSet<QString> &done = {});
+// Which action items have been ticked off, kept next to the notes in
+// tasks.json so regenerating notes keeps them.
+QSet<QString> loadDoneTasks(const QString &path);
+bool saveDoneTasks(const QString &path, const QSet<QString> &done);
 QString timeLink(double seconds);
 // Parses "afterline:t=754.2"; returns -1 if it is not a time link.
 double parseTimeLink(const QString &url);

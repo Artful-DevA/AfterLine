@@ -171,6 +171,40 @@ bool Processing::ask(const QString &requestId, const QString &question, const QS
     }
     const auto hits = m_store.passagesFor(question, 12, meetingIds);
     QJsonArray passages;
+    // What the notes concluded (decisions, action items with their owner,
+    // open questions, dates) comes first: it is the meeting's own summary
+    // of who does what, and keeps answers from taking a quote literally.
+    QStringList noteMeetings = meetingIds;
+    for (const auto &h : hits)
+        if (!noteMeetings.contains(h.meetingId) && noteMeetings.size() < 4)
+            noteMeetings << h.meetingId;
+    for (const QString &id : noteMeetings) {
+        const MeetingInfo m = m_store.get(id);
+        if (!m.isValid() || !QFile::exists(m.path("notes.json")))
+            continue;
+        const QJsonObject n = readJsonFile(m.path("notes.json"));
+        auto add = [&](const QString &text, double start) {
+            passages.append(QJsonObject{{"meetingId", m.id}, {"meetingTitle", m.title},
+                                        {"date", m.created.date().toString(Qt::ISODate)}, {"start", start},
+                                        {"text", text}});
+        };
+        for (const auto v : n["decisions"].toArray())
+            add(tr("[Meeting notes] Decision: %1").arg(v.toObject()["text"].toString()), v.toObject()["start"].toDouble());
+        for (const auto v : n["action_items"].toArray()) {
+            const QJsonObject o = v.toObject();
+            QString t = tr("[Meeting notes] Action item for %1: %2")
+                            .arg(o["owner"].toString().isEmpty() ? tr("someone") : o["owner"].toString(),
+                                 o["task"].toString());
+            if (!o["due"].toString().isEmpty())
+                t += tr(" (due %1)").arg(o["due"].toString());
+            add(t, o["start"].toDouble());
+        }
+        for (const auto v : n["open_questions"].toArray())
+            add(tr("[Meeting notes] Open question: %1").arg(v.toObject()["text"].toString()), v.toObject()["start"].toDouble());
+        for (const auto v : n["dates"].toArray())
+            add(tr("[Meeting notes] Date: %1 — %2").arg(v.toObject()["date"].toString(), v.toObject()["text"].toString()),
+                v.toObject()["start"].toDouble());
+    }
     for (const auto &h : hits)
         passages.append(QJsonObject{{"meetingId", h.meetingId}, {"meetingTitle", h.meetingTitle},
                                     {"date", h.created.date().toString(Qt::ISODate)}, {"start", h.start},

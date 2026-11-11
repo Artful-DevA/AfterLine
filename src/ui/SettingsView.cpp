@@ -5,6 +5,7 @@
 #include "app/ModelManager.h"
 #include "app/Settings.h"
 #include "core/Paths.h"
+#include "ui/Dialogs.h"
 #include "ui/Icons.h"
 #include "ui/Theme.h"
 #include "ui/Widgets.h"
@@ -18,7 +19,6 @@
 #include <QFormLayout>
 #include <QHBoxLayout>
 #include <QLabel>
-#include <QMessageBox>
 #include <QProgressBar>
 #include <QPushButton>
 #include <QRadioButton>
@@ -76,15 +76,15 @@ ModelRow::ModelRow(AppContext ctx, const ModelSpec &spec, QButtonGroup *group, Q
     connect(m_download, &QPushButton::clicked, this, [this] {
         QString err;
         if (!m_ctx.models->download(m_spec.id, &err))
-            QMessageBox::warning(this, tr("Cannot download"), err);
+            inform(this, tr("Cannot download"), err, Tone::Warning);
         refresh();
     });
     connect(m_cancel, &QPushButton::clicked, this, [this] { m_ctx.models->cancel(m_spec.id); });
     connect(m_remove, &QPushButton::clicked, this, [this] {
-        if (QMessageBox::question(this, tr("Remove model?"),
-                                  tr("%1 (%2) will be deleted from this computer. Your meetings are not affected; "
-                                     "you can download the model again later.")
-                                      .arg(m_spec.name, formatBytes(m_spec.bytes))) == QMessageBox::Yes)
+        if (confirm(this, tr("Remove %1?").arg(m_spec.name),
+                    tr("%1 will be freed. Your meetings are not affected, and you can download the model again later.")
+                        .arg(formatBytes(m_spec.bytes)),
+                    tr("Remove"), Tone::Danger))
             m_ctx.models->remove(m_spec.id);
     });
     connect(ctx.models, &ModelManager::changed, this, &ModelRow::refresh);

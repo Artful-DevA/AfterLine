@@ -7,6 +7,7 @@
 #include "app/RecordingController.h"
 #include "app/Settings.h"
 #include "core/Transcript.h"
+#include "ui/Dialogs.h"
 #include "ui/Icons.h"
 #include "ui/LibraryView.h"
 #include "ui/MeetingView.h"
@@ -21,7 +22,6 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
-#include <QMessageBox>
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QShortcut>
@@ -199,7 +199,7 @@ MainWindow::MainWindow(AppContext ctx, QWidget *parent) : QMainWindow(parent), m
         updateDownloads();
         const ModelSpec *s = findModel(id);
         if (!ok && s && s->kind != ModelKind::SpeechDetector && !err.contains(tr("paused")))
-            QMessageBox::warning(this, tr("Download problem"), tr("%1: %2").arg(s->name, err));
+            inform(this, tr("Download problem"), tr("%1: %2").arg(s->name, err), Tone::Warning);
         if (ok && m_pages->currentWidget() == m_meeting)
             m_meeting->reload();
     });
@@ -317,12 +317,8 @@ bool MainWindow::confirmQuit()
 {
     if (!m_ctx.recording->recording())
         return true;
-    QMessageBox box(QMessageBox::Question, tr("A recording is in progress"),
-                    tr("Stop and save the recording before quitting?"), QMessageBox::Cancel, this);
-    auto *save = box.addButton(tr("Stop, save and quit"), QMessageBox::AcceptRole);
-    box.setDefaultButton(QMessageBox::Cancel);
-    box.exec();
-    if (box.clickedButton() != save)
+    if (!confirm(this, tr("A recording is in progress"), tr("Stop and save the recording before quitting?"),
+                 tr("Stop, save and quit"), Tone::Warning, "record"))
         return false;
     m_ctx.recording->stop();
     return true;

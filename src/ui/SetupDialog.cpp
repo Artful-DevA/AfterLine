@@ -4,6 +4,7 @@
 #include "app/ModelCatalog.h"
 #include "app/ModelManager.h"
 #include "app/Settings.h"
+#include "ui/Dialogs.h"
 #include "ui/Icons.h"
 #include "ui/SettingsView.h"
 #include "ui/Theme.h"
@@ -12,7 +13,6 @@
 #include <QComboBox>
 #include <QHBoxLayout>
 #include <QLabel>
-#include <QMessageBox>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QStackedWidget>
@@ -131,7 +131,7 @@ SetupDialog::SetupDialog(AppContext ctx, QWidget *parent) : QDialog(parent), m_c
             if (spec && !spec->installed() && !m_ctx.models->isDownloading(id)) {
                 QString err;
                 if (!m_ctx.models->download(id, &err)) {
-                    QMessageBox::warning(this, tr("Cannot download"), err);
+                    inform(this, tr("Cannot download"), err, Tone::Warning);
                     return;
                 }
             }

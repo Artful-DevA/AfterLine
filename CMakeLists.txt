@@ -89,10 +89,12 @@ if(AFTERLINE_BUILD_GUI)
     src/app/ModelManager.cpp
     src/app/Processing.cpp
     src/app/LiveTranscriber.cpp
+    src/app/Tasks.cpp
     src/app/RecordingController.cpp
     src/ui/Theme.cpp
     src/ui/Icons.cpp
     src/ui/Widgets.cpp
+    src/ui/Dialogs.cpp
     src/ui/MainWindow.cpp
     src/ui/LibraryView.cpp
     src/ui/RecordView.cpp

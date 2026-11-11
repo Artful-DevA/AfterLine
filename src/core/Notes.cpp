@@ -50,7 +50,22 @@ double parseTimeLink(const QString &url)
     return ok ? t : -1;
 }
 
-QString notesToMarkdown(const MeetingNotes &notes, bool links)
+QSet<QString> loadDoneTasks(const QString &path)
+{
+    QSet<QString> done;
+    for (const auto v : readJsonFile(path)["done"].toArray())
+        done.insert(v.toString());
+    return done;
+}
+
+bool saveDoneTasks(const QString &path, const QSet<QString> &done)
+{
+    QStringList list(done.begin(), done.end());
+    list.sort();
+    return writeJsonFile(path, QJsonObject{{"done", QJsonArray::fromStringList(list)}});
+}
+
+QString notesToMarkdown(const MeetingNotes &notes, bool links, const QSet<QString> &done)
 {
     const QJsonObject &d = notes.data;
     QString md;
@@ -73,7 +88,7 @@ QString notesToMarkdown(const MeetingNotes &notes, bool links)
     section("decisions", tr("Decisions"), tr("No decisions were recorded."),
             [&](const QJsonObject &o) { return "- " + escape(o["text"].toString()) + stamp(o, links); });
     section("action_items", tr("Action items"), tr("No action items were mentioned."), [&](const QJsonObject &o) {
-        QString s = "- [ ] " + escape(o["task"].toString());
+        QString s = (done.contains(o["task"].toString()) ? "- [x] " : "- [ ] ") + escape(o["task"].toString());
         const QString owner = o["owner"].toString(), due = o["due"].toString();
         if (!owner.isEmpty())
             s += " — **" + escape(owner) + "**";

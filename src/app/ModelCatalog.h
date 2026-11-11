@@ -33,6 +33,8 @@ struct ModelSpec {
 const QVector<ModelSpec> &modelCatalog();
 const ModelSpec *findModel(const QString &id);
 const ModelSpec *findModelBySha256(const QString &sha256);
+// "Qwen3-4B-Instruct-2507-Q4_K_M" (as recorded in notes) → "Qwen3 4B".
+QString friendlyModelName(const QString &recorded);
 QVector<ModelSpec> modelsOfKind(ModelKind kind);
 // The default choice for this computer (memory-aware).
 QString recommendedModel(ModelKind kind);

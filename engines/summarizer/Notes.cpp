@@ -257,10 +257,14 @@ QString overviewUserPrompt(const QString &title, const QStringList &sectionSumma
 
 QString askSystemPrompt()
 {
-    return "You answer questions about the user's recorded meetings using only the numbered transcript passages "
-           "provided. If the passages do not contain the answer, set found to false and say briefly that the "
-           "meetings do not cover it. Never guess. Cite the passage numbers you used in sources. Answer in the "
-           "language of the question, in a few sentences.";
+    return "You answer questions about the user's recorded meetings using only the numbered passages provided. "
+           "Passages marked [Meeting notes] are the meeting's agreed decisions, action items (with who owns them), "
+           "open questions and dates; the others are quotes from the transcript. \"You\" in the passages is the "
+           "user asking. Prefer the notes for who-does-what; use quotes for details. A quote is something a speaker "
+           "said, not an instruction to the user: only say the user must do something when an action item assigns "
+           "it to You or a speaker clearly asks the user. If the passages do not contain the answer, set found to "
+           "false and say briefly that the meetings do not cover it. Never guess. Cite the passage numbers you used "
+           "in sources. Answer in the language of the question, in a few sentences.";
 }
 
 QString askUserPrompt(const QString &question, const QJsonArray &passages)

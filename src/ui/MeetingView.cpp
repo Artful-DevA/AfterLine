@@ -11,6 +11,7 @@
 #include "core/OggOpus.h"
 #include "ui/AskPanel.h"
 #include "ui/AudioView.h"
+#include "ui/Dialogs.h"
 #include "ui/Icons.h"
 #include "ui/NotesView.h"
 #include "ui/Theme.h"
@@ -29,7 +30,6 @@
 #include <QLineEdit>
 #include <QLocale>
 #include <QMenu>
-#include <QMessageBox>
 #include <QProgressBar>
 #include <QPushButton>
 #include <QSplitter>
@@ -79,20 +79,21 @@ MeetingView::MeetingView(AppContext ctx, QWidget *parent) : QWidget(parent), m_c
     menu->addSeparator();
     menu->addAction(icon("transcript"), tr("Transcribe again"), this, [this] {
         if (m_meeting.hasTranscript() &&
-            QMessageBox::question(this, tr("Transcribe again?"),
-                                  tr("The transcript, including your corrections, will be replaced by a new one "
-                                     "made with the current speech model and language (%1). The audio is not "
-                                     "changed.")
-                                      .arg(Settings::languageName(m_ctx.settings->language()))) != QMessageBox::Yes)
+            !confirm(this, tr("Transcribe again?"),
+                     tr("The transcript, including your corrections, will be replaced by a new one made with the "
+                        "current speech model and language (%1). The audio is not changed.")
+                         .arg(Settings::languageName(m_ctx.settings->language())),
+                     tr("Transcribe again"), Tone::Warning, "transcript"))
             return;
         QFile::remove(m_meeting.path("transcript.json.partial"));
         startTranscription();
     });
     menu->addAction(icon("notes"), tr("Write notes again"), this, [this] {
         if (m_meeting.notesEdited() &&
-            QMessageBox::question(this, tr("Write notes again?"),
-                                  tr("New notes will be generated. Your edited notes will be kept until you choose "
-                                     "“Restore generated notes”.")) != QMessageBox::Yes)
+            !confirm(this, tr("Write notes again?"),
+                     tr("New notes will be generated. Your edited notes will be kept until you choose “Restore "
+                        "generated notes”."),
+                     tr("Write again"), Tone::Neutral, "notes"))
             return;
         startNotes();
     });
@@ -373,7 +374,7 @@ void MeetingView::startTranscription()
 {
     QString error;
     if (!m_ctx.processing->transcribe(m_meeting.id, &error))
-        QMessageBox::information(this, tr("Cannot transcribe yet"), error);
+        inform(this, tr("Cannot transcribe yet"), error, Tone::Info, "transcript");
     reload();
 }
 
@@ -381,7 +382,7 @@ void MeetingView::startNotes()
 {
     QString error;
     if (!m_ctx.processing->writeNotes(m_meeting.id, &error))
-        QMessageBox::information(this, tr("Cannot write notes yet"), error);
+        inform(this, tr("Cannot write notes yet"), error, Tone::Info, "notes");
     reload();
 }
 
@@ -485,7 +486,7 @@ void MeetingView::exportMeeting()
             return;
         QString err;
         if (!writeTextFile(path, afterline::exportMeeting(in, f), &err))
-            QMessageBox::warning(this, tr("Export failed"), err);
+            inform(this, tr("Export failed"), err, Tone::Warning);
     };
     const bool hasT = !in.transcript.isEmpty();
     menu.addAction(icon("notes"), tr("Notes and transcript (Markdown)…"),
@@ -518,8 +519,8 @@ void MeetingView::exportMeeting()
             if (QFile::exists(m_meeting.path(file)))
                 copied += QFile::copy(m_meeting.path(file), dir + "/" + base + " (" + suffix + ").opus");
         if (!copied)
-            QMessageBox::warning(this, tr("Nothing saved"), tr("The audio could not be copied (a file with that "
-                                                               "name may already exist)."));
+            inform(this, tr("Nothing saved"),
+                   tr("The audio could not be copied (a file with that name may already exist)."), Tone::Warning);
     });
     audio->setEnabled(m_meeting.hasAudio());
     menu.exec(QCursor::pos());
@@ -536,22 +537,21 @@ void MeetingView::deleteMeeting()
         parts << tr("the transcript (and your corrections)");
     if (m_meeting.hasNotes())
         parts << tr("the notes");
-    QMessageBox box(QMessageBox::Warning, tr("Delete this meeting?"),
-                    tr("“%1” will be moved to the trash, including %2. You can restore it from the trash until it "
-                       "is emptied.")
-                        .arg(m_meeting.title, parts.isEmpty() ? tr("its details") : QLocale().createSeparatedList(parts)),
-                    QMessageBox::Cancel, this);
-    auto *del = box.addButton(tr("Delete"), QMessageBox::DestructiveRole);
-    box.setDefaultButton(QMessageBox::Cancel);
-    box.exec();
-    if (box.clickedButton() != del)
+    if (!confirm(this, tr("Delete “%1”?").arg(m_meeting.title),
+                 tr("%1 will be moved to the trash. You can restore it from there until the trash is emptied.")
+                     .arg(parts.isEmpty() ? tr("Its details") : [&] {
+                         QString l = QLocale().createSeparatedList(parts);
+                         l[0] = l[0].toUpper();
+                         return l;
+                     }()),
+                 tr("Move to trash"), Tone::Danger))
         return;
     m_ctx.processing->cancel(m_meeting.id);
     const QString id = m_meeting.id;
     closeMeeting();
     QString err;
     if (!m_ctx.store->remove(id, &err)) {
-        QMessageBox::warning(this, tr("Could not delete"), err);
+        inform(this, tr("Could not delete"), err, Tone::Warning);
         return;
     }
     Q_EMIT deleted(id);
