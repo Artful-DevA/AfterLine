@@ -1,33 +1,40 @@
 // SPDX-License-Identifier: MIT
 #include "app/DesktopNotifier.h"
 
+#ifdef AFTERLINE_HAVE_DBUS
 #include <QDBusConnection>
 #include <QDBusInterface>
 #include <QDBusReply>
+#endif
 #include <QIcon>
 #include <QSystemTrayIcon>
 #include <QVariantMap>
 
 namespace afterline {
 
+#ifdef AFTERLINE_HAVE_DBUS
 namespace {
 const char *kService = "org.freedesktop.Notifications";
 const char *kPath = "/org/freedesktop/Notifications";
 }  // namespace
+#endif
 
 DesktopNotifier::DesktopNotifier(QObject *parent) : QObject(parent)
 {
+#ifdef AFTERLINE_HAVE_DBUS
     QDBusConnection bus = QDBusConnection::sessionBus();
     if (!bus.isConnected())
         return;
     m_connected = bus.connect(kService, kPath, kService, "ActionInvoked", this,
                               SLOT(onActionInvoked(uint, QString))) &&
                   bus.connect(kService, kPath, kService, "NotificationClosed", this, SLOT(onClosed(uint, uint)));
+#endif
 }
 
 bool DesktopNotifier::show(const QString &title, const QString &body, const QList<Action> &actions,
                            const std::function<void()> &onClick, bool urgent)
 {
+#ifdef AFTERLINE_HAVE_DBUS
     if (m_connected) {
         QDBusInterface iface(kService, kPath, kService, QDBusConnection::sessionBus());
         QStringList actionList;
@@ -48,6 +55,7 @@ bool DesktopNotifier::show(const QString &title, const QString &body, const QLis
             return true;
         }
     }
+#endif
     // No notification service: the tray balloon, without buttons.
     if (m_tray && QSystemTrayIcon::supportsMessages()) {
         m_tray->showMessage(title, body, QIcon(":/icons/afterline.svg"), 8000);

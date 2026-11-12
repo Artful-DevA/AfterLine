@@ -6,6 +6,7 @@
 #include <QIcon>
 #include <QSocketNotifier>
 
+#ifdef Q_OS_UNIX
 #include <csignal>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -18,6 +19,7 @@ void onTerminate(int)
     [[maybe_unused]] auto r = ::write(g_signalFds[0], &c, 1);
 }
 }  // namespace
+#endif
 
 int main(int argc, char **argv)
 {
@@ -38,6 +40,7 @@ int main(int argc, char **argv)
     cli.addOption(hidden);
     cli.process(app);
 
+#ifdef Q_OS_UNIX
     // Logging out or shutting down sends SIGTERM: quit normally, so a
     // recording in progress is stopped and saved like a manual stop.
     if (::socketpair(AF_UNIX, SOCK_STREAM, 0, g_signalFds) == 0) {
@@ -55,6 +58,7 @@ int main(int argc, char **argv)
         sigaction(SIGINT, &sa, nullptr);
         sigaction(SIGHUP, &sa, nullptr);
     }
+#endif
 
     afterline::Application afterline;
     return afterline.run(cli.isSet(hidden));

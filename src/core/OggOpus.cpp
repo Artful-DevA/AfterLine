@@ -8,7 +8,13 @@
 #include <cmath>
 #include <cstring>
 #include <random>
+#ifdef _WIN32
+#include <io.h>
+#define AFTERLINE_DATASYNC(f) ::_commit(_fileno(f))
+#else
 #include <unistd.h>
+#define AFTERLINE_DATASYNC(f) ::fdatasync(fileno(f))
+#endif
 
 namespace afterline {
 
@@ -262,7 +268,7 @@ bool OggOpusWriter::flush(bool sync)
     if (sync) {
         // fdatasync can fail on some FUSE filesystems; the data is still in
         // the page cache, so this is not treated as a recording failure.
-        ::fdatasync(fileno(m_file));
+        AFTERLINE_DATASYNC(m_file);
         m_lastSyncSample = m_samples;
     }
     return true;
@@ -285,7 +291,7 @@ bool OggOpusWriter::close()
     ok = ok && writePages(true);
     if (std::fflush(m_file) != 0)
         ok = fail(std::string("Write failed: ") + std::strerror(errno));
-    ::fdatasync(fileno(m_file));
+    AFTERLINE_DATASYNC(m_file);
     if (std::fclose(m_file) != 0 && ok)
         ok = fail(std::string("Close failed: ") + std::strerror(errno));
     m_file = nullptr;

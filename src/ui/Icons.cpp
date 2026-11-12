@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 #include "ui/Icons.h"
+#include "core/Paths.h"
 
 #include "ui/Theme.h"
 
@@ -8,7 +9,6 @@
 #include <QFileInfo>
 #include <QStandardPaths>
 
-#include <unistd.h>
 
 #include <QHash>
 #include <QIconEngine>
@@ -135,7 +135,7 @@ QString iconFile(const QString &name, const QColor &color, double strokeWidth)
     QString dir = QStandardPaths::writableLocation(QStandardPaths::RuntimeLocation);
     if (dir.isEmpty())
         dir = QDir::tempPath();
-    dir += QString("/afterline-icons-%1").arg(::getuid());
+    dir += QString("/afterline-icons-%1").arg(userTag());
     QDir().mkpath(dir);
     QFile::setPermissions(dir, QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner);
     const QString path = QString("%1/%2-%3-%4.svg").arg(dir, name, color.name().mid(1)).arg(int(strokeWidth * 10));

@@ -7,6 +7,11 @@
 #include <QSettings>
 #include <QStandardPaths>
 
+#include <QRegularExpression>
+#ifndef _WIN32
+#include <unistd.h>
+#endif
+
 namespace afterline {
 
 namespace {
@@ -16,6 +21,17 @@ QString ensure(const QString &path)
     return path;
 }
 }  // namespace
+
+QString userTag()
+{
+#ifdef _WIN32
+    QString user = qEnvironmentVariable("USERNAME");
+    user.remove(QRegularExpression("[^A-Za-z0-9_.-]"));
+    return user.isEmpty() ? QString("user") : user;
+#else
+    return QString::number(::getuid());
+#endif
+}
 
 QString dataDir()
 {
@@ -59,11 +75,15 @@ QString engineDir()
 QString enginePath(const QString &name)
 {
     const QString dir = engineDir();
-    for (const QString &candidate : {dir + "/" + name + "/afterline-" + name,
-                                     dir + "/" + name + "-build/stage/afterline-" + name})
+#ifdef _WIN32
+    const QString exe = "afterline-" + name + ".exe";
+#else
+    const QString exe = "afterline-" + name;
+#endif
+    for (const QString &candidate : {dir + "/" + name + "/" + exe, dir + "/" + name + "-build/stage/" + exe})
         if (QFileInfo(candidate).isExecutable())
             return candidate;
-    return dir + "/" + name + "/afterline-" + name;
+    return dir + "/" + name + "/" + exe;
 }
 
 }  // namespace afterline

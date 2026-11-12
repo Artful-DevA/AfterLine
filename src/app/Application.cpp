@@ -30,7 +30,6 @@
 #include <QStyleHints>
 #include <QGuiApplication>
 
-#include <unistd.h>
 
 namespace afterline {
 
@@ -84,7 +83,7 @@ Application::~Application()
     delete m_ctx.settings;
 }
 
-QString Application::socketName() { return QString("afterline-%1").arg(::getuid()); }
+QString Application::socketName() { return QString("afterline-%1").arg(userTag()); }
 
 int Application::run(bool startHidden)
 {
