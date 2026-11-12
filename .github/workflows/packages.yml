@@ -3,7 +3,9 @@ name: Packages
 # Builds the installable packages for every supported distribution (each in a
 # clean container of that distribution, with all tests as a gate), installs
 # every package into a *fresh* container and runs it, and publishes a GitHub
-# Release with checksums when a version tag (v0.2.0, ...) is pushed.
+# Release with checksums when a version tag (v0.2.0, ...) is pushed, or when
+# the workflow is run by hand with "publish" ticked (the release job then
+# creates the tag for the version in CMakeLists.txt on the commit it built).
 on:
   push:
     tags: ['v*']
@@ -15,6 +17,11 @@ on:
       - 'packaging/**'
       - '.github/workflows/packages.yml'
   workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish a GitHub Release for the version in CMakeLists.txt
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -165,7 +172,7 @@ jobs:
 
   release:
     name: Publish release
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.publish)
     needs: [install-test]
     runs-on: ubuntu-24.04
     permissions:
@@ -173,9 +180,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Check the tag matches the version in CMakeLists.txt
+        id: version
         run: |
           version=$(sed -n 's/^project(AfterLine VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt)
-          test "v$version" = "$GITHUB_REF_NAME" || { echo "Tag $GITHUB_REF_NAME but CMakeLists.txt says $version"; exit 1; }
+          if [ "${{ github.event_name }}" = workflow_dispatch ]; then
+            echo "tag=v$version" >> "$GITHUB_OUTPUT"
+          else
+            test "v$version" = "$GITHUB_REF_NAME" || { echo "Tag $GITHUB_REF_NAME but CMakeLists.txt says $version"; exit 1; }
+            echo "tag=$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
+          fi
+          echo "name=AfterLine $version" >> "$GITHUB_OUTPUT"
       - uses: actions/download-artifact@v4
         with:
           path: dist
@@ -184,5 +198,8 @@ jobs:
         run: cd dist && sha256sum * > SHA256SUMS
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: ${{ steps.version.outputs.name }}
           files: dist/*
           body_path: packaging/RELEASE_NOTES.md
