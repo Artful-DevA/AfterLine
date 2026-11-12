@@ -6,10 +6,14 @@ All notable changes to AfterLine are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-12
+
 ### Fixed
 - The transcript (live and final) no longer fills with a phrase repeated over
   and over ("ice ice ice ...") when the speech model gets stuck, mostly on
   music or noise; such loops are collapsed and invented lines dropped.
+- The live transcript no longer shows the call's own sentences under "You"
+  when the call plays through speakers and reaches the microphone.
 
 ### Changed
 - Tagline: "Every meeting, written down."

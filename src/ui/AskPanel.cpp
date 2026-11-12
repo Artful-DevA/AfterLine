@@ -254,7 +254,7 @@ void AskPanel::answerTasks(const QString &, const QStringList &scope)
         QString line = (t.done ? "<s>" : QString()) + t.task.toHtmlEscaped() + (t.done ? "</s>" : QString());
         QStringList meta;
         if (oneMeeting && !t.owner.isEmpty())
-            meta << t.owner.toHtmlEscaped();
+            meta << (t.mine ? tr("You") : t.owner.toHtmlEscaped());
         if (!t.due.isEmpty())
             meta << tr("due %1").arg(t.due.toHtmlEscaped());
         if (!oneMeeting)

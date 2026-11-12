@@ -31,7 +31,13 @@
   </categories>
   <content_rating type="oars-1.1"/>
   <releases>
-    <release version="0.2.0" date="2026-11-10">
+    <release version="0.2.1" date="2026-11-12">
+      <description>
+        <p>Transcripts no longer fill with a phrase repeated over and over, and
+        the live transcript drops the call's echo from your microphone.</p>
+      </description>
+    </release>
+    <release version="0.2.0" date="2026-11-12">
       <description>
         <p>Rewritten as a native application: per-application recording,
         offline transcription and notes, meeting library and search.</p>

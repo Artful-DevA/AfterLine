@@ -15,6 +15,7 @@
 #include <QThread>
 
 #include <algorithm>
+#include <cmath>
 
 namespace afterline {
 
@@ -131,6 +132,16 @@ void LiveTranscriber::onLine(const QByteArray &line)
                                    [](double t, const LiveLine &x) { return t < x.start; });
         m_lines.insert(it, l);
         Q_EMIT lineAdded(l);
+    } else if (type == "retract") {
+        // A line that turned out to be the call's audio heard by the mic.
+        const QString source = e["source"].toString();
+        const double start = e["start"].toDouble();
+        const auto before = m_lines.size();
+        m_lines.erase(std::remove_if(m_lines.begin(), m_lines.end(),
+                                     [&](const LiveLine &l) { return l.source == source && std::abs(l.start - start) < 0.05; }),
+                      m_lines.end());
+        if (m_lines.size() != before)
+            Q_EMIT linesChanged();
     } else if (type == "partial") {
         Q_EMIT partial(e["source"].toString(), e["text"].toString());
     }

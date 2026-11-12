@@ -84,6 +84,7 @@ RecordView::RecordView(AppContext ctx, QWidget *parent) : QWidget(parent), m_ctx
             m_partial.clear();
         renderLive();
     });
+    connect(ctx.live, &LiveTranscriber::linesChanged, this, &RecordView::renderLive);
     connect(ctx.live, &LiveTranscriber::partial, this, [this](const QString &source, const QString &text) {
         m_partial = text;
         m_partialSource = source;
@@ -288,8 +289,9 @@ QWidget *RecordView::buildRecording()
     auto *left = new QVBoxLayout;
     left->setSpacing(12);
     auto *c = card();
-    c->setMinimumWidth(280);
-    c->setMaximumWidth(360);
+    // A fixed width: status texts of different lengths must not shift the
+    // layout or squeeze the device names.
+    c->setFixedWidth(330);
     auto *g = new QGridLayout(c);
     g->setContentsMargins(20, 16, 20, 20);
     g->setHorizontalSpacing(10);
@@ -299,20 +301,24 @@ QWidget *RecordView::buildRecording()
     g->addWidget(m_timer, 0, 0, 1, 3);
     g->addWidget(hline(), 1, 0, 1, 3);
     g->setRowMinimumHeight(1, 14);
+    // Each track: icon, name, and its state on the line below; then the meter.
     auto addTrack = [&](int row, const QString &iconName, QLabel *&name, QLabel *&state, LevelMeter *&meter) {
         auto *ic = new QLabel;
         ic->setPixmap(icon(iconName, Theme::color(Token::Muted)).pixmap(18, 18));
-        g->addWidget(ic, row, 0);
+        g->addWidget(ic, row, 0, Qt::AlignTop);
+        auto *text = new QVBoxLayout;
+        text->setSpacing(0);
         name = new QLabel;
         QFont f = name->font();
         f.setWeight(QFont::DemiBold);
         name->setFont(f);
-        name->setMinimumWidth(60);
-        g->addWidget(name, row, 1);
+        name->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+        text->addWidget(name);
         state = label({}, "Muted");
         state->setWordWrap(false);
-        state->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-        g->addWidget(state, row, 2);
+        state->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+        text->addWidget(state);
+        g->addLayout(text, row, 1, 1, 2);
         meter = new LevelMeter;
         g->addWidget(meter, row + 1, 0, 1, 3);
         g->setRowMinimumHeight(row + 2, 10);
@@ -326,7 +332,7 @@ QWidget *RecordView::buildRecording()
     m_warning = new QWidget;
     m_warning->setObjectName("WarningBanner");
     m_warning->setAttribute(Qt::WA_StyledBackground);
-    m_warning->setMaximumWidth(360);
+    m_warning->setFixedWidth(330);
     auto *wl = new QHBoxLayout(m_warning);
     wl->setContentsMargins(14, 12, 8, 12);
     auto *wi = new QLabel;
@@ -346,7 +352,7 @@ QWidget *RecordView::buildRecording()
     auto *safe = label(tr("Audio is written to disk continuously. Closing the window keeps recording in the "
                           "background."),
                        "Muted");
-    safe->setMaximumWidth(360);
+    safe->setFixedWidth(330);
     left->addWidget(safe);
     left->addStretch();
     columns->addLayout(left);

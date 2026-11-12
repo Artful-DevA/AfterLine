@@ -39,6 +39,7 @@ public:
 Q_SIGNALS:
     void lineAdded(const afterline::LiveLine &line);
     void partial(const QString &source, const QString &text);
+    void linesChanged();  // lines were removed (echo of the call)
     void stateChanged();
 
 private:

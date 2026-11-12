@@ -89,7 +89,10 @@ QString notesToMarkdown(const MeetingNotes &notes, bool links, const QSet<QStrin
             [&](const QJsonObject &o) { return "- " + escape(o["text"].toString()) + stamp(o, links); });
     section("action_items", tr("Action items"), tr("No action items were mentioned."), [&](const QJsonObject &o) {
         QString s = (done.contains(o["task"].toString()) ? "- [x] " : "- [ ] ") + escape(o["task"].toString());
-        const QString owner = o["owner"].toString(), due = o["due"].toString();
+        QString owner = o["owner"].toString();
+        if (owner.compare("you", Qt::CaseInsensitive) == 0)
+            owner = tr("You");
+        const QString due = o["due"].toString();
         if (!owner.isEmpty())
             s += " — **" + escape(owner) + "**";
         if (!due.isEmpty())

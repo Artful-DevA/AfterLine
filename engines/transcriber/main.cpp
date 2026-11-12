@@ -417,20 +417,38 @@ struct LiveTrack {
     std::vector<Segment> recent;
 };
 
-bool liveIsEcho(const Segment &m, const std::vector<Segment> &computer)
+// Removes from a microphone line the sentences that were the call heard
+// through the speakers. The two tracks are recognised separately, so the
+// same sentence can come out slightly differently ("review" / "renew"):
+// words are compared by their first four letters and most of a sentence
+// must match. Returns true when something was removed.
+bool liveStripEcho(Segment &m, const std::vector<Segment> &computer)
 {
-    const QStringList mic = wordsOf(m.text);
-    if (mic.isEmpty())
-        return true;
+    auto stem = [](const QString &w) { return w.left(4); };
     QSet<QString> heard;
     for (const auto &c : computer)
-        if (c.start < m.end + 2.0 && m.start < c.end + 2.0)
+        if (c.start < m.end + 3.0 && m.start < c.end + 3.0)
             for (const auto &w : wordsOf(c.text))
-                heard.insert(w);
-    int matched = 0;
-    for (const auto &w : mic)
-        matched += heard.contains(w);
-    return double(matched) / double(mic.size()) >= 0.8;
+                heard.insert(stem(w));
+    if (heard.isEmpty())
+        return false;
+    static const QRegularExpression sentenceEnd(R"((?<=[.?!])\s+)");
+    QStringList kept;
+    bool removed = false;
+    for (const QString &sentence : m.text.split(sentenceEnd, Qt::SkipEmptyParts)) {
+        const QStringList words = wordsOf(sentence);
+        int matched = 0;
+        for (const auto &w : words)
+            matched += heard.contains(stem(w));
+        if (!words.isEmpty() && double(matched) / double(words.size()) >= 0.7) {
+            removed = true;
+            continue;
+        }
+        kept << sentence;
+    }
+    if (removed)
+        m.text = kept.join(' ').trimmed();
+    return removed;
 }
 
 int runLive(whisper_context *ctx, whisper_vad_context *vad, whisper_full_params params, std::vector<Track> tracks)
@@ -466,10 +484,13 @@ int runLive(whisper_context *ctx, whisper_vad_context *vad, whisper_full_params 
             break;
         if (::getppid() == 1)
             break;  // the app is gone
-        std::vector<Segment> computerRecent;
-        for (auto &lt : live)
+        LiveTrack *computerTrack = nullptr, *micTrack = nullptr;
+        for (auto &lt : live) {
             if (lt.track.source == "computer")
-                computerRecent = lt.recent;
+                computerTrack = &lt;
+            else if (lt.track.source == "microphone")
+                micTrack = &lt;
+        }
         for (auto &lt : live) {
             if (g_abort)
                 break;
@@ -551,12 +572,35 @@ int runLive(whisper_context *ctx, whisper_vad_context *vad, whisper_full_params 
                 const double offset = lt.done + double(w.first) / kRate;
                 std::vector<Segment> found;
                 appendSentences(ctx, offset, offset + wLen, lt.track.source, detected, found, votes);
-                for (const auto &seg : found) {
-                    if (seg.source == "microphone" && liveIsEcho(seg, computerRecent))
-                        continue;
+                for (Segment seg : found) {
+                    // Speakers let the call leak into the microphone. What was
+                    // heard on both tracks belongs to the call: it is removed
+                    // from the mic line, whichever track was recognised first.
+                    if (seg.source == "microphone" && computerTrack) {
+                        liveStripEcho(seg, computerTrack->recent);
+                        if (seg.text.isEmpty())
+                            continue;
+                    }
                     lt.recent.push_back(seg);
                     emitEvent({{"type", "segment"}, {"start", seg.start}, {"end", seg.end},
                                {"source", seg.source}, {"text", seg.text}});
+                    if (seg.source == "computer" && micTrack) {
+                        auto &mic = micTrack->recent;
+                        for (auto it = mic.begin(); it != mic.end();) {
+                            if (!liveStripEcho(*it, std::vector<Segment>{seg})) {
+                                ++it;
+                                continue;
+                            }
+                            emitEvent({{"type", "retract"}, {"source", "microphone"}, {"start", it->start}});
+                            if (it->text.isEmpty()) {
+                                it = mic.erase(it);
+                            } else {
+                                emitEvent({{"type", "segment"}, {"start", it->start}, {"end", it->end},
+                                           {"source", it->source}, {"text", it->text}});
+                                ++it;
+                            }
+                        }
+                    }
                 }
                 if (found.empty())
                     emitEvent({{"type", "partial"}, {"source", lt.track.source}, {"text", QString()}});
