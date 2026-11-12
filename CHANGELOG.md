@@ -6,6 +6,8 @@ All notable changes to AfterLine are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-11-12
+
 ### Changed
 - "Suggest recording when a call starts" is now a desktop notification with a
   Record button that starts recording that call at once (clicking the

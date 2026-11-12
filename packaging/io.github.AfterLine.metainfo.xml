@@ -31,6 +31,13 @@
   </categories>
   <content_rating type="oars-1.1"/>
   <releases>
+    <release version="0.2.2" date="2026-11-12">
+      <description>
+        <p>Call suggestions and alerts are desktop notifications with a Record
+        button, the notes have a Copy button, and the live transcript can be
+        switched off during a recording.</p>
+      </description>
+    </release>
     <release version="0.2.1" date="2026-11-12">
       <description>
         <p>Transcripts no longer fill with a phrase repeated over and over, and

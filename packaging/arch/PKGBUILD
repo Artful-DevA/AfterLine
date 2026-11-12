@@ -1,6 +1,6 @@
 # Maintainer: Artful-DevA <246381290+Artful-DevA@users.noreply.github.com>
 pkgname=afterline
-pkgver=0.2.1
+pkgver=0.2.2
 pkgrel=1
 pkgdesc="Private, offline meeting recorder with transcripts and notes"
 arch=('x86_64')
