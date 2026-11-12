@@ -66,8 +66,9 @@ Website and downloads: <https://afterline-linux.netlify.app>
   trash. Choose where recordings are saved (Settings → Where recordings are
   saved); AfterLine moves your existing meetings there safely.
 - **Optional call reminder.** Turn on "Suggest recording when a call starts"
-  and AfterLine asks when Zoom, Teams, Slack, Discord or a browser starts
-  using the microphone. It never records on its own.
+  and a desktop notification asks when Zoom, Teams, Slack, Discord or a
+  browser starts using the microphone; its Record button starts recording
+  that call. It never records on its own.
 - **Export** notes and transcript as Markdown or text, subtitles (SRT, WebVTT),
   JSON, or the audio itself.
 - **Built for laptops.** AI processing runs at low CPU and I/O priority in

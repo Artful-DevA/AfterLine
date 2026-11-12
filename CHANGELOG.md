@@ -6,6 +6,14 @@ All notable changes to AfterLine are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- "Suggest recording when a call starts" is now a desktop notification with a
+  Record button that starts recording that call at once (clicking the
+  notification opens the Record page), instead of a box inside the window.
+  "Recording saved", "Transcript ready" and other alerts are desktop
+  notifications too, and clicking one opens that meeting; they used to
+  depend on a tray icon, which GNOME does not show.
+
 ### Added
 - An on/off switch on the live transcript panel, to turn it off (or back
   on) in the middle of a recording; the choice is remembered.

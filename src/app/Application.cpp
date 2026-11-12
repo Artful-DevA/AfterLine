@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 #include "app/Application.h"
 
+#include "app/DesktopNotifier.h"
 #include "app/LiveTranscriber.h"
 #include "app/MeetingStore.h"
 #include "app/ModelManager.h"
@@ -114,6 +115,7 @@ int Application::run(bool startHidden)
     });
 
     qApp->installEventFilter(new WheelGuard(this));
+    m_notifier = new DesktopNotifier(this);
     m_ctx.settings = new Settings;
     ui::Theme::apply(*qApp, m_ctx.settings->theme());
 
@@ -146,7 +148,8 @@ int Application::run(bool startHidden)
         if (m_ctx.settings->autoTranscribe())
             m_ctx.processing->transcribe(id);
         if (!m_window || !m_window->isVisible())
-            notify(tr("Recording saved"), m_ctx.settings->autoTranscribe() ? tr("Transcription has started.") : QString());
+            notify(tr("Recording saved"), m_ctx.settings->autoTranscribe() ? tr("Transcription has started.") : QString(),
+                   id);
     });
     connect(m_ctx.recording, &RecordingController::pausedChanged, this, [this] { updateTray(); });
     // Optional (off by default): offer to record when a call starts. Only a
@@ -154,11 +157,19 @@ int Application::run(bool startHidden)
     connect(m_ctx.recording, &RecordingController::callDetected, this, [this](const QString &app, const QString &key) {
         if (!m_ctx.settings->suggestRecording() || m_ctx.recording->recording() || !m_window)
             return;
-        m_window->suggestRecording(app, key);
-        if (!m_window->isActiveWindow()) {
-            m_pendingCallSource = key;
-            notify(tr("%1 is using your microphone").arg(app), tr("Click to record this call with AfterLine."));
-        }
+        // A desktop notification: seen even when AfterLine is in the
+        // background. "Record" starts at once with that app (and the
+        // microphone as last chosen); clicking it opens the Record page.
+        m_notifier->show(tr("%1 is using your microphone").arg(app), tr("Record this call with AfterLine?"),
+                         {DesktopNotifier::Action{"record", tr("Record"),
+                                                  [this, key] {
+                                                      m_window->bringToFront();
+                                                      m_window->recordFrom(key, true);
+                                                  }}},
+                         [this, key] {
+                             m_window->bringToFront();
+                             m_window->recordFrom(key, false);
+                         });
     });
     connect(m_ctx.recording, &RecordingController::warning, this, [this](const QString &title, const QString &msg) {
         if (!m_window || !m_window->isActiveWindow())
@@ -171,9 +182,10 @@ int Application::run(bool startHidden)
                 const QString title = m_ctx.store->get(id).title;
                 if (!ok && err != tr("Cancelled."))
                     notify(kind == Processing::Kind::Transcript ? tr("Transcription failed") : tr("Notes failed"),
-                           title + ": " + err);
+                           title + ": " + err, id);
                 else if (ok)
-                    notify(kind == Processing::Kind::Transcript ? tr("Transcript ready") : tr("Notes ready"), title);
+                    notify(kind == Processing::Kind::Transcript ? tr("Transcript ready") : tr("Notes ready"), title,
+                           id);
             });
 
     createWindow();
@@ -265,14 +277,8 @@ void Application::setupTray()
     if (!QSystemTrayIcon::isSystemTrayAvailable())
         return;
     m_tray = new QSystemTrayIcon(QIcon(":/icons/afterline.svg"), this);
+    m_notifier->setTrayFallback(m_tray);
     m_tray->setToolTip("AfterLine");
-    connect(m_tray, &QSystemTrayIcon::messageClicked, this, [this] {
-        if (m_pendingCallSource.isEmpty() || !m_window)
-            return;
-        m_window->bringToFront();
-        m_window->recordFrom(m_pendingCallSource);
-        m_pendingCallSource.clear();
-    });
     connect(m_tray, &QSystemTrayIcon::activated, this, [this](QSystemTrayIcon::ActivationReason r) {
         if (r == QSystemTrayIcon::Trigger && m_window)
             m_window->bringToFront();
@@ -313,10 +319,16 @@ void Application::updateTray()
     delete old;
 }
 
-void Application::notify(const QString &title, const QString &message)
+void Application::notify(const QString &title, const QString &message, const QString &meetingId)
 {
-    if (m_tray && QSystemTrayIcon::supportsMessages())
-        m_tray->showMessage(title, message, QIcon(":/icons/afterline.svg"), 6000);
+    // Clicking the notification brings AfterLine forward (on that meeting).
+    m_notifier->show(title, message, {}, [this, meetingId] {
+        if (!m_window)
+            return;
+        m_window->bringToFront();
+        if (!meetingId.isEmpty())
+            m_window->showMeeting(meetingId);
+    });
 }
 
 }  // namespace afterline

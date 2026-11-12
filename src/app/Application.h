@@ -15,6 +15,7 @@ class ModelManager;
 class Processing;
 class RecordingController;
 class LiveTranscriber;
+class DesktopNotifier;
 
 namespace ui {
 class MainWindow;
@@ -44,12 +45,12 @@ private:
     void applyTheme(bool fromSettings);
     void setupTray();
     void updateTray();
-    void notify(const QString &title, const QString &message);
+    void notify(const QString &title, const QString &message, const QString &meetingId = {});
 
     AppContext m_ctx;
     QLocalServer *m_server = nullptr;
     QSystemTrayIcon *m_tray = nullptr;
-    QString m_pendingCallSource;  // the call a notification offered to record
+    DesktopNotifier *m_notifier = nullptr;
     QPointer<ui::MainWindow> m_window;
 };
 

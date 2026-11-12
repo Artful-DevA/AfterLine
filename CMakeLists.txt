@@ -82,7 +82,7 @@ endif()
 # Qt application
 # ---------------------------------------------------------------------------
 if(AFTERLINE_BUILD_GUI)
-  find_package(Qt6 6.2 REQUIRED COMPONENTS Gui Widgets Network Svg)
+  find_package(Qt6 6.2 REQUIRED COMPONENTS Gui Widgets Network Svg DBus)
 
   add_executable(afterline
     src/main.cpp
@@ -91,6 +91,7 @@ if(AFTERLINE_BUILD_GUI)
     src/app/ModelManager.cpp
     src/app/Processing.cpp
     src/app/LiveTranscriber.cpp
+    src/app/DesktopNotifier.cpp
     src/app/RecordingController.cpp
     src/ui/Theme.cpp
     src/ui/Icons.cpp
@@ -112,7 +113,7 @@ if(AFTERLINE_BUILD_GUI)
   set_target_properties(afterline PROPERTIES AUTORCC ON)
   target_compile_options(afterline PRIVATE ${AFTERLINE_WARNINGS})
   target_link_libraries(afterline PRIVATE afterline_core
-    Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Network Qt6::Svg)
+    Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Network Qt6::Svg Qt6::DBus)
 
   install(TARGETS afterline RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
   install(FILES packaging/io.github.AfterLine.desktop
