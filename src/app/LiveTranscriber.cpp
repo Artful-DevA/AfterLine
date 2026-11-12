@@ -55,8 +55,10 @@ void LiveTranscriber::start(const QString &meetingId)
     const ModelSpec *vad = findModel(recommendedModel(ModelKind::SpeechDetector));
     if (vad && vad->installed())
         args << "--vad" << vad->path();
-    // The engine runs at low priority, so the call itself keeps precedence.
-    const int threads = std::clamp(QThread::idealThreadCount() - 1, 1, 4);
+    // Two threads: a steady, light load instead of bursts on every core,
+    // which keeps the fans quiet during the call. Still faster than real
+    // time on an ordinary laptop.
+    const int threads = std::min(2, std::max(1, QThread::idealThreadCount() - 1));
     args << "--threads" << QString::number(threads);
     args << "--track" << "computer=" + m.path(audio::Recorder::kComputerFile);
     if (!m.microphoneLabel.isEmpty())

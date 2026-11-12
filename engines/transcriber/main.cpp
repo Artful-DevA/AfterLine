@@ -458,6 +458,8 @@ int runLive(whisper_context *ctx, whisper_vad_context *vad, whisper_full_params 
         live.push_back({t, 0, {}});
     std::map<QString, int> votes;
     double lastRunSeconds = 0;  // how long the previous recognition took
+    QElapsedTimer previewClock;
+    previewClock.start();
     // Detecting the language costs a pass of its own: once the first
     // sentences are in, keep the language they were in.
     const bool autoLanguage = QString::fromLatin1(params.language) == "auto";
@@ -537,7 +539,12 @@ int runLive(whisper_context *ctx, whisper_vad_context *vad, whisper_full_params 
                     // A preview of the sentence being spoken, when the
                     // computer keeps up comfortably.
                     const double backlog = bufferSeconds - wEnd + wLen;
-                    if (wLen >= 3.0 && lastRunSeconds < 1.5 && backlog < 10) {
+                    // At most every 6 s: each preview re-reads the whole
+                    // sentence so far, and frequent ones keep the processor
+                    // (and the fans) spinning up and down.
+                    if (wLen >= 4.0 && lastRunSeconds < 2.5 && backlog < 10 &&
+                        previewClock.elapsed() > 6000) {
+                        previewClock.restart();
                         std::vector<float> piece(pcm.begin() + long(w.first), pcm.end());
                         if (recognise(piece)) {
                             QString text;

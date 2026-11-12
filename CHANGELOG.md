@@ -12,6 +12,9 @@ All notable changes to AfterLine are documented here. The format follows
 - The transcript (live and final) no longer fills with a phrase repeated over
   and over ("ice ice ice ...") when the speech model gets stuck, mostly on
   music or noise; such loops are collapsed and invented lines dropped.
+- The live transcript runs steadily on two cores and refreshes its preview
+  less often, instead of bursts on every core that made fans ramp up and
+  down every few seconds.
 - The live transcript no longer shows the call's own sentences under "You"
   when the call plays through speakers and reaches the microphone.
 
