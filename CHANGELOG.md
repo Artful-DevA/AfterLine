@@ -35,7 +35,7 @@ All notable changes to AfterLine are documented here. The format follows
   when the call plays through speakers and reaches the microphone.
 
 ### Changed
-- Tagline: "Every meeting, written down."
+- Tagline: "Be in the meeting, not in your notes."
 
 ## [0.2.0] - 2026-11-12
 
