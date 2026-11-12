@@ -10,7 +10,12 @@
 #include "ui/Theme.h"
 #include "ui/Widgets.h"
 
+#include <QClipboard>
 #include <QFile>
+#include <QGuiApplication>
+#include <QMimeData>
+#include <QTextDocument>
+#include <QTimer>
 #include <QHBoxLayout>
 #include <QJsonObject>
 #include <QLabel>
@@ -37,11 +42,13 @@ NotesView::NotesView(QWidget *parent) : QWidget(parent)
     m_info = label({}, "Muted");
     bar->addWidget(m_info, 1);
     m_revert = new QPushButton(tr("Restore generated notes"));
+    m_copy = new QPushButton(icon("copy"), tr("Copy"));
+    m_copy->setToolTip(tr("Copy the notes, to paste into an email, a document or a chat"));
     m_edit = new QPushButton(icon("edit"), tr("Edit"));
     m_cancel = new QPushButton(tr("Cancel"));
     m_save = new QPushButton(icon("check", Theme::color(Token::OnAccent)), tr("Save"));
     m_save->setObjectName("Primary");
-    for (auto *b : {m_revert, m_edit, m_cancel, m_save})
+    for (auto *b : {m_revert, m_copy, m_edit, m_cancel, m_save})
         bar->addWidget(b);
     v->addLayout(bar);
 
@@ -89,6 +96,7 @@ NotesView::NotesView(QWidget *parent) : QWidget(parent)
     });
     connect(m_emptyAction, &QPushButton::clicked, this, &NotesView::actionRequested);
     connect(m_edit, &QPushButton::clicked, this, &NotesView::edit);
+    connect(m_copy, &QPushButton::clicked, this, &NotesView::copy);
     connect(m_save, &QPushButton::clicked, this, &NotesView::save);
     connect(m_cancel, &QPushButton::clicked, this, [this] { load(m_meeting, m_emptyText->text(), m_emptyAction->text()); });
     connect(m_revert, &QPushButton::clicked, this, &NotesView::revert);
@@ -149,6 +157,7 @@ void NotesView::load(const MeetingInfo &meeting, const QString &emptyMessage, co
         m_stack->setCurrentIndex(2);
     }
     m_edit->setVisible(has);
+    m_copy->setVisible(has);
     m_revert->setVisible(has && meeting.notesEdited() && QFile::exists(meeting.path("notes.json")));
     m_save->hide();
     m_cancel->hide();
@@ -218,6 +227,32 @@ void NotesView::toggleTask(int index)
     load(m_meeting, m_emptyText->text(), m_emptyAction->text());
     m_view->verticalScrollBar()->setValue(scroll);
     Q_EMIT tasksChanged();
+}
+
+// Copies the notes both as formatted text (for email, Google Docs, Word…)
+// and as Markdown (for chats, Obsidian, GitHub…). Timestamps become plain
+// "(12:34)" instead of AfterLine's internal links.
+void NotesView::copy()
+{
+    QString markdown = m_markdown;
+    if (!m_meeting.notesEdited() && QFile::exists(m_meeting.path("notes.json")))
+        markdown = notesToMarkdown(loadNotes(m_meeting.path("notes.json")), false,
+                                   loadDoneTasks(m_meeting.path("tasks.json")));
+    const QString title = m_meeting.title.trimmed();
+    if (!title.isEmpty() && !markdown.startsWith("# "))
+        markdown = "# " + title + "\n\n" + markdown;
+    QTextDocument doc;
+    doc.setMarkdown(markdown);
+    auto *mime = new QMimeData;
+    mime->setText(markdown);
+    mime->setHtml(doc.toHtml());
+    QGuiApplication::clipboard()->setMimeData(mime);
+    m_copy->setText(tr("Copied"));
+    m_copy->setIcon(icon("check", Theme::color(Token::Success)));
+    QTimer::singleShot(2000, m_copy, [this] {
+        m_copy->setText(tr("Copy"));
+        m_copy->setIcon(icon("copy"));
+    });
 }
 
 void NotesView::edit()

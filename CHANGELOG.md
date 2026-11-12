@@ -15,6 +15,8 @@ All notable changes to AfterLine are documented here. The format follows
   depend on a tray icon, which GNOME does not show.
 
 ### Added
+- A Copy button for the notes: copies them with the meeting title, formatted
+  for email and documents and as Markdown for chats and note apps.
 - An on/off switch on the live transcript panel, to turn it off (or back
   on) in the middle of a recording; the choice is remembered.
 

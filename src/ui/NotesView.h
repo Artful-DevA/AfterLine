@@ -30,6 +30,7 @@ Q_SIGNALS:
 
 private:
     void edit();
+    void copy();
     void save();
     void revert();
     bool eventFilter(QObject *o, QEvent *e) override;
@@ -42,7 +43,7 @@ private:
     QLabel *m_info;
     QLabel *m_emptyText;
     QPushButton *m_emptyAction;
-    QPushButton *m_edit, *m_save, *m_cancel, *m_revert;
+    QPushButton *m_copy, *m_edit, *m_save, *m_cancel, *m_revert;
 };
 
 }  // namespace afterline::ui
