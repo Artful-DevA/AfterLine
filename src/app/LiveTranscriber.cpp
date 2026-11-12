@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 #include "app/LiveTranscriber.h"
+#include "app/ProcessControl.h"
 
 #include "app/MeetingStore.h"
 #include "app/ModelCatalog.h"
@@ -85,7 +86,7 @@ void LiveTranscriber::start(const QString &meetingId)
         proc->deleteLater();
     });
     m_proc = proc;
-    proc->start(enginePath("transcriber"), args);
+    proc->start(enginePath("transcriber"), args + QStringList{"--stdin-control"});
     Q_EMIT stateChanged();
 }
 
@@ -112,7 +113,7 @@ void LiveTranscriber::stop()
     m_proc = nullptr;
     m_ready = false;
     proc->disconnect(this);
-    proc->terminate();
+    requestEngineStop(proc);
     if (!proc->waitForFinished(1500))
         proc->kill();
     proc->deleteLater();

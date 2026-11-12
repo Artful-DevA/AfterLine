@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 #include "app/Processing.h"
+#include "app/ProcessControl.h"
 
 #include "app/ModelCatalog.h"
 #include "audio/Recorder.h"
@@ -17,7 +18,6 @@
 #include <QTemporaryDir>
 #include <QTimer>
 
-#include <csignal>
 
 namespace afterline {
 
@@ -52,8 +52,7 @@ Processing::~Processing()
         // transcriber keeps its partial results. Disconnect first, so the
         // engine's exit is not recorded as a failure.
         m_proc->disconnect(this);
-        ::kill(pid_t(m_proc->processId()), SIGCONT);
-        m_proc->terminate();
+        requestEngineStop(m_proc);
         if (!m_proc->waitForFinished(3000))
             m_proc->kill();
     }
@@ -366,7 +365,7 @@ void Processing::startNext()
     }
     setState(m_current.meetingId, m_current.kind, "running");
     Q_EMIT started(m_current.meetingId, m_current.kind);
-    proc->start(engine, m_current.args);
+    proc->start(engine, m_current.args + QStringList{"--stdin-control"});
 }
 
 void Processing::onLine(const QByteArray &line)
@@ -472,8 +471,7 @@ void Processing::cancel(const QString &meetingId)
         }
     if (m_proc && m_current.meetingId == meetingId) {
         m_cancelled = true;
-        ::kill(pid_t(m_proc->processId()), SIGCONT);
-        m_proc->terminate();
+        requestEngineStop(m_proc);
         QPointer<QProcess> p = m_proc;
         QTimer::singleShot(5000, this, [p] {
             if (p)
@@ -490,7 +488,10 @@ void Processing::setRecordingActive(bool active)
     m_recording = active;
     if (m_proc && m_current.kind != Kind::Ask) {
         // Freeze background work for the duration of the call.
-        ::kill(pid_t(m_proc->processId()), active ? SIGSTOP : SIGCONT);
+        if (active)
+            suspendProcess(m_proc);
+        else
+            resumeProcess(m_proc);
         m_paused = active;
         Q_EMIT progress(m_current.meetingId, m_current.kind, m_progress,
                         active ? tr("Paused while recording") : m_stage);

@@ -36,8 +36,12 @@
 #include <map>
 
 #include <csignal>
+#ifdef __linux__
 #include <sys/prctl.h>
+#endif
+#ifndef _WIN32
 #include <unistd.h>
+#endif
 
 using namespace engine;
 
@@ -484,8 +488,10 @@ int runLive(whisper_context *ctx, whisper_vad_context *vad, whisper_full_params 
             QThread::msleep(100);
         if (g_abort)
             break;
+#ifndef _WIN32
         if (::getppid() == 1)
             break;  // the app is gone
+#endif
         LiveTrack *computerTrack = nullptr, *micTrack = nullptr;
         for (auto &lt : live) {
             if (lt.track.source == "computer")
@@ -672,11 +678,15 @@ int main(int argc, char **argv)
         } else if (a == "--version") {
             std::printf("afterline-transcriber %s (whisper.cpp %s)\n", AFTERLINE_VERSION, whisper_version());
             return 0;
+        } else if (a == "--stdin-control") {
+            // handled by installSignalHandlers()
         } else { usage(); return 2; }
     }
     if (live) {
+#ifdef __linux__
         // Stop with the app, even if it is killed.
         ::prctl(PR_SET_PDEATHSIG, SIGTERM);
+#endif
         quality = "fast";
     }
     if (modelPath.isEmpty() || (output.isEmpty() && !live) || tracks.empty()) {

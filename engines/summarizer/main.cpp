@@ -289,6 +289,8 @@ int main(int argc, char **argv)
         else if (a == "--version") {
             std::printf("afterline-summarizer %s\n", AFTERLINE_VERSION);
             return 0;
+        } else if (a == "--stdin-control") {
+            // handled by installSignalHandlers()
         } else { usage(); return 2; }
     }
     const bool ask = !question.isEmpty();

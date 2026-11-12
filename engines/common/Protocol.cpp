@@ -7,13 +7,23 @@
 #include <QSet>
 #include <QTextStream>
 
+#include <QCoreApplication>
+#include <QThread>
+
 #include <csignal>
 #include <cstdio>
 #include <cstdlib>
+#include <iostream>
+#include <string>
+#include <thread>
+
+#ifdef _WIN32
+#include <windows.h>
+#else
 #include <sys/resource.h>
 #include <sys/syscall.h>
-#include <thread>
 #include <unistd.h>
+#endif
 
 namespace engine {
 
@@ -25,21 +35,45 @@ void onSignal(int) { g_abort = true; }
 
 void installSignalHandlers()
 {
+#ifdef _WIN32
+    std::signal(SIGINT, onSignal);
+    std::signal(SIGTERM, onSignal);
+#else
     struct sigaction sa {};
     sa.sa_handler = onSignal;
     sigemptyset(&sa.sa_mask);
     sigaction(SIGTERM, &sa, nullptr);
     sigaction(SIGINT, &sa, nullptr);
     std::signal(SIGPIPE, SIG_IGN);
+#endif
+    // With --stdin-control (as AfterLine starts its engines), a line "stop"
+    // on standard input, or standard input closing because AfterLine went
+    // away, asks for the same clean stop as a signal. This works the same on
+    // every system, Windows included.
+    for (const QString &a : QCoreApplication::arguments())
+        if (a == QLatin1String("--stdin-control")) {
+            std::thread([] {
+                std::string line;
+                while (std::getline(std::cin, line))
+                    if (line.rfind("stop", 0) == 0)
+                        break;
+                g_abort = true;
+            }).detach();
+            break;
+        }
 }
 
 void lowerPriority()
 {
+#ifdef _WIN32
+    SetPriorityClass(GetCurrentProcess(), BELOW_NORMAL_PRIORITY_CLASS);
+#else
     setpriority(PRIO_PROCESS, 0, 10);
     // ioprio_set(IOPRIO_WHO_PROCESS, 0, IOPRIO_CLASS_IDLE): reading the
     // recording never competes with writing one.
 #ifdef SYS_ioprio_set
     syscall(SYS_ioprio_set, 1, 0, (3 << 13));
+#endif
 #endif
 }
 
@@ -61,16 +95,7 @@ void fail(const QString &message)
     std::exit(1);
 }
 
-QString executableDir()
-{
-    char buf[4096];
-    const ssize_t n = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
-    if (n <= 0)
-        return QStringLiteral(".");
-    buf[n] = 0;
-    QString path = QString::fromLocal8Bit(buf);
-    return path.left(path.lastIndexOf('/'));
-}
+QString executableDir() { return QCoreApplication::applicationDirPath(); }
 
 bool writeJsonFile(const QString &path, const QJsonObject &object, QString *error)
 {
@@ -104,7 +129,9 @@ int defaultThreads()
                 cores.insert(physical + "/" + line.section(':', 1).trimmed());
         }
     }
-    int n = cores.isEmpty() ? int(std::thread::hardware_concurrency()) : int(cores.size());
+    // Elsewhere (Windows): logical processors, halved for hyper-threading.
+    int n = cores.isEmpty() ? std::max(1, QThread::idealThreadCount() / (QFile::exists("/proc") ? 1 : 2))
+                            : int(cores.size());
     if (n <= 0)
         n = 4;
     return std::max(1, std::min(n - 1, 8));
