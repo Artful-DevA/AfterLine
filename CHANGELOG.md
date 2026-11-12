@@ -6,6 +6,10 @@ All notable changes to AfterLine are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- An on/off switch on the live transcript panel, to turn it off (or back
+  on) in the middle of a recording; the choice is remembered.
+
 ## [0.2.1] - 2026-11-12
 
 ### Fixed

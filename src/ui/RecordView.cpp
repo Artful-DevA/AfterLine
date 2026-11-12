@@ -370,8 +370,28 @@ QWidget *RecordView::buildRecording()
                         "when you stop, and is more accurate."));
     lh->addWidget(pill);
     lh->addStretch();
+    // Turn the live transcript off (or on) in the middle of a call; the
+    // choice is remembered for the next recordings too.
+    m_liveSwitch = new ToggleSwitch({});
+    m_liveSwitch->setAccessibleName(tr("Live transcript on or off"));
+    m_liveSwitch->setToolTip(tr("Turn the live transcript off to keep your computer quiet. The full transcript is "
+                                "still made when you stop."));
+    m_liveSwitch->setFixedWidth(44);
+    lh->addWidget(m_liveSwitch);
     lh->addSpacing(12);
     lv->addLayout(lh);
+    connect(m_liveSwitch, &QCheckBox::toggled, this, [this](bool on) {
+        m_ctx.settings->setLiveTranscript(on);
+        m_liveToggle->setChecked(on);
+        if (!on) {
+            m_ctx.live->stop();
+            m_partial.clear();
+        } else if (m_ctx.recording->recording() && !m_ctx.live->running()) {
+            m_ctx.live->start(m_ctx.recording->meetingId());
+        }
+        m_live->setVisible(on);
+        updateLiveState();
+    });
     m_live = new QTextBrowser;
     m_live->setOpenLinks(false);
     m_live->setFrameShape(QFrame::NoFrame);
@@ -390,7 +410,10 @@ QWidget *RecordView::buildRecording()
 void RecordView::updateLiveState()
 {
     const QString why = m_ctx.live->unavailableReason();
-    if (m_ctx.live->ready())
+    if (!m_ctx.settings->liveTranscript())
+        m_liveStatus->setText(tr("Live transcript is off, so your computer stays quiet. The full transcript is made "
+                                 "when you stop recording."));
+    else if (m_ctx.live->ready())
         m_liveStatus->setText(m_ctx.live->lines().isEmpty() ? tr("Listening. Sentences appear a few seconds after "
                                                                  "they are spoken.")
                                                             : QString());
@@ -615,6 +638,11 @@ void RecordView::showRecording(bool recording)
         m_state->setText(tr("RECORDING"));
         m_timerTick.start();
         m_partial.clear();
+        {
+            QSignalBlocker block(m_liveSwitch);
+            m_liveSwitch->setChecked(m_ctx.settings->liveTranscript());
+        }
+        m_live->setVisible(m_ctx.settings->liveTranscript());
         renderLive();
     } else {
         m_testing = false;

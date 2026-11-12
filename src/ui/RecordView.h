@@ -74,6 +74,7 @@ private:
     QPushButton *m_pause, *m_stop;
     // Live transcript
     QTextBrowser *m_live;
+    QCheckBox *m_liveSwitch;
     QLabel *m_liveStatus;
     QString m_partial, m_partialSource;
     QTimer m_timerTick;
