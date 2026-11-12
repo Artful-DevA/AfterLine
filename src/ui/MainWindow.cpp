@@ -68,7 +68,7 @@ MainWindow::MainWindow(AppContext ctx, QWidget *parent) : QMainWindow(parent), m
     logo->setAlignment(Qt::AlignCenter);
     hv->addWidget(logo);
     hv->addSpacing(6);
-    auto *t = label(tr("Conversations, kept."), "PageTitle");
+    auto *t = label(tr("Every meeting, written down."), "PageTitle");
     t->setAlignment(Qt::AlignCenter);
     hv->addWidget(t);
     auto *sub = label(tr("Record a meeting and AfterLine writes the transcript and notes, privately, on this computer."),

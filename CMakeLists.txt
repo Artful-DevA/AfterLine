@@ -48,6 +48,7 @@ set(CMAKE_AUTOMOC ON)
 
 add_library(afterline_core STATIC
   src/core/Transcript.cpp
+  src/core/TextCleanup.cpp
   src/core/Notes.cpp
   src/core/Export.cpp
   src/core/Paths.cpp

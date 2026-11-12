@@ -4,6 +4,7 @@
 #include "Notes.h"  // engines/summarizer
 #include "core/Export.h"
 #include "core/Notes.h"
+#include "core/TextCleanup.h"
 #include "core/Transcript.h"
 
 #include <QJsonArray>
@@ -40,6 +41,23 @@ std::vector<notes::Line> lines()
 class TranscriptTest : public QObject {
     Q_OBJECT
 private Q_SLOTS:
+    void collapsesRecogniserLoops()
+    {
+        int removed = 0;
+        QCOMPARE(collapseRepetition("this is ice ice ice ice ice Ice Ice Ice I will choose a color.", &removed),
+                 QString("this is ice I will choose a color."));
+        QCOMPARE(removed, 7);
+        QCOMPARE(collapseRepetition("that's the mom, that's the mom, that's the mom, that's the mom. Okay."),
+                 QString("that's the mom, Okay."));
+        // Ordinary speech is left alone, including a word said three times.
+        QCOMPARE(collapseRepetition("No, no, no, I said yes."), QString("No, no, no, I said yes."));
+        QCOMPARE(collapseRepetition("We need to talk to Maria about the launch on Friday.", &removed),
+                 QString("We need to talk to Maria about the launch on Friday."));
+        QCOMPARE(removed, 0);
+        QVERIFY(implausiblyFast("one two three four five six seven eight nine ten eleven twelve thirteen", 1.0));
+        QVERIFY(!implausiblyFast("one two three four five six seven eight nine ten", 3.0));
+    }
+
     void filesIntoExistingFoldersOnly()
     {
         const QStringList folders{"Work", "School"};

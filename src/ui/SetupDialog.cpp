@@ -47,7 +47,7 @@ SetupDialog::SetupDialog(AppContext ctx, QWidget *parent) : QDialog(parent), m_c
 
     QVBoxLayout *b = nullptr;
     // 1. Welcome
-    auto *welcome = page(tr("Conversations, kept."),
+    auto *welcome = page(tr("Every meeting, written down."),
                          tr("AfterLine records your meetings, writes a full transcript and turns it into clear "
                             "notes, all on this computer."),
                          &b);

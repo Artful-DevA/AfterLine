@@ -19,5 +19,6 @@ afterline_stage_libraries("${whisper_SOURCE_DIR}")
 
 afterline_engine_executable(afterline-transcriber
   main.cpp
-  ${AFTERLINE_SOURCE_DIR}/src/core/OggOpus.cpp)
+  ${AFTERLINE_SOURCE_DIR}/src/core/OggOpus.cpp
+  ${AFTERLINE_SOURCE_DIR}/src/core/TextCleanup.cpp)
 target_link_libraries(afterline-transcriber PRIVATE whisper ggml PkgConfig::OPUS PkgConfig::OGG)

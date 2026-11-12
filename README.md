@@ -1,6 +1,6 @@
 # AfterLine
 
-**Conversations, kept.** A private, offline meeting recorder for Linux, with
+**Every meeting, written down.** A private, offline meeting recorder for Linux, with
 transcripts and notes.
 
 AfterLine records your meetings from the whole computer or from a single

@@ -13,6 +13,7 @@
 // saved, so a cancelled or crashed run resumes where it stopped.
 #include "Protocol.h"
 #include "core/OggOpus.h"
+#include "core/TextCleanup.h"
 
 #include <ggml-backend.h>
 #include <whisper.h>
@@ -320,9 +321,13 @@ void appendSentences(whisper_context *ctx, double offset, double limit, const QS
         double t0 = -1, t1 = 0, p = 0;
         int count = 0;
         auto flush = [&]() {
-            const QString sentence = QString::fromUtf8(text).trimmed();
-            if (!isNoise(sentence, nsp) && t0 >= 0) {
-                const double s0 = offset + t0 / 100.0;
+            int looped = 0;
+            const QString sentence = afterline::collapseRepetition(QString::fromUtf8(text).trimmed(), &looped);
+            const double d0 = offset + t0 / 100.0, d1 = std::min(limit, offset + t1 / 100.0);
+            const bool invented = looped > 0 && (afterline::implausiblyFast(sentence, d1 - d0) ||
+                                                 looped > 2 * int(sentence.split(' ', Qt::SkipEmptyParts).size()));
+            if (!isNoise(sentence, nsp) && t0 >= 0 && !invented) {
+                const double s0 = d0;
                 const double s1 = std::min(limit, std::max(s0, offset + t1 / 100.0));
                 out.push_back({s0, s1, source, sentence, language, count ? p / count : 0});
                 votes[language] += int(sentence.size());
@@ -439,14 +444,15 @@ int runLive(whisper_context *ctx, whisper_vad_context *vad, whisper_full_params 
     // sentences are in, keep the language they were in.
     const bool autoLanguage = QString::fromLatin1(params.language) == "auto";
     QByteArray fixedLanguage;
-    // whisper always encodes 30 s; a short phrase only needs a fraction of
-    // that context, which makes live recognition several times faster.
     auto recognise = [&](std::vector<float> &piece) {
         if (piece.size() < size_t(kRate) + 1600)
             piece.resize(size_t(kRate) + 1600, 0.f);
         whisper_full_params p = params;
-        const double seconds = double(piece.size()) / kRate;
-        p.audio_ctx = seconds < 27 ? std::min(1500, int(std::ceil((seconds + 2.0) / 30.0 * 1500))) : 0;
+        // Phrases up to ~13 s are encoded with half of whisper's 30 s
+        // context: about twice as fast. Shorter contexts are faster still but
+        // make the recogniser loop; any loop that slips through is collapsed.
+        if (double(piece.size()) / kRate <= 13.0)
+            p.audio_ctx = 768;
         if (!fixedLanguage.isEmpty())
             p.language = fixedLanguage.constData();
         return whisper_full(ctx, p, piece.data(), int(piece.size())) == 0;
@@ -516,7 +522,7 @@ int runLive(whisper_context *ctx, whisper_vad_context *vad, whisper_full_params 
                             QString text;
                             for (int i = 0; i < whisper_full_n_segments(ctx); ++i)
                                 text += QString::fromUtf8(whisper_full_get_segment_text(ctx, i));
-                            text = text.trimmed();
+                            text = afterline::collapseRepetition(text.trimmed());
                             if (!isNoise(text, 0))
                                 emitEvent({{"type", "partial"}, {"source", lt.track.source}, {"text", text}});
                         }

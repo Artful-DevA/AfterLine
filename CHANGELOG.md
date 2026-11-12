@@ -6,6 +6,14 @@ All notable changes to AfterLine are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- The transcript (live and final) no longer fills with a phrase repeated over
+  and over ("ice ice ice ...") when the speech model gets stuck, mostly on
+  music or noise; such loops are collapsed and invented lines dropped.
+
+### Changed
+- Tagline: "Every meeting, written down."
+
 ## [0.2.0] - 2026-11-12
 
 A complete rewrite. The Python prototype has been replaced with a native
