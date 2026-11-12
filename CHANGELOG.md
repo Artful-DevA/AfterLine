@@ -6,7 +6,7 @@ All notable changes to AfterLine are documented here. The format follows
 
 ## [Unreleased]
 
-## [0.2.0] - 2026-11-10
+## [0.2.0] - 2026-11-12
 
 A complete rewrite. The Python prototype has been replaced with a native
 C++/Qt 6 application.

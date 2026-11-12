@@ -147,9 +147,9 @@ jobs:
             test -f /usr/share/applications/io.github.AfterLine.desktop
             test -f /usr/share/icons/hicolor/scalable/apps/io.github.AfterLine.svg
             test -f /usr/share/metainfo/io.github.AfterLine.metainfo.xml
-            engines=$(dirname "$(find /usr/lib* -name afterline-transcriber -type f | head -1)")/..
+            engines=$(dirname "$(find /usr/lib* -path '*/transcriber/afterline-transcriber' -type f | head -1)")/..
           else
-            engines=$(dirname "$(find dist/squashfs-root -name afterline-transcriber -type f | head -1)")/..
+            engines=$(dirname "$(find dist/squashfs-root -path '*/transcriber/afterline-transcriber' -type f | head -1)")/..
           fi
           "$engines/transcriber/afterline-transcriber" --version
           "$engines/summarizer/afterline-summarizer" --version
