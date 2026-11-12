@@ -66,7 +66,25 @@ done
 "linuxdeploy-$ARCH.AppImage" --appdir AppDir $ENGINES \
     --desktop-file AppDir/usr/share/applications/io.github.AfterLine.desktop \
     --icon-file AppDir/usr/share/icons/hicolor/256x256/apps/io.github.AfterLine.png \
-    --plugin qt --output appimage
+    --plugin qt
+# linuxdeploy fixes the copies it puts in usr/bin, but AfterLine starts the
+# engines from their own folders: point those at the bundled libraries (Qt,
+# Opus, ...) in usr/lib too, and drop the unused copies.
+for e in $(find AppDir/usr -type f -path '*/afterline/*/afterline-*'); do
+    dir=$(dirname "$e")
+    rel=$(realpath --relative-to="$dir" AppDir/usr/lib)
+    patchelf --set-rpath "\$ORIGIN:\$ORIGIN/$rel" "$e"
+    rm -f "AppDir/usr/bin/$(basename "$e")"
+done
+# Check: every engine resolves all its libraries from the AppDir alone.
+for e in $(find AppDir/usr -type f -path '*/afterline/*/afterline-*'); do
+    if ldd "$e" | grep -q "libQt6Core.so.6 => /usr/lib\|not found"; then
+        echo "engine $e does not use the bundled libraries:" >&2
+        ldd "$e" >&2
+        exit 1
+    fi
+done
+"linuxdeploy-$ARCH.AppImage" --appdir AppDir --output appimage
 cd ..
 mkdir -p dist
 mv "$BUILD/$LDAI_OUTPUT" dist/
