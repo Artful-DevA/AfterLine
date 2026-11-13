@@ -1,0 +1,27 @@
+// Windows resources: the program icon and version information.
+#include <winver.h>
+
+IDI_ICON1 ICON "afterline.ico"
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION     AFTERLINE_VERSION_MAJOR, AFTERLINE_VERSION_MINOR, AFTERLINE_VERSION_PATCH, 0
+PRODUCTVERSION  AFTERLINE_VERSION_MAJOR, AFTERLINE_VERSION_MINOR, AFTERLINE_VERSION_PATCH, 0
+FILEOS          VOS_NT_WINDOWS32
+FILETYPE        VFT_APP
+BEGIN
+  BLOCK "StringFileInfo"
+  BEGIN
+    BLOCK "040904B0"
+    BEGIN
+      VALUE "CompanyName", "AfterLine"
+      VALUE "FileDescription", "AfterLine"
+      VALUE "ProductName", "AfterLine"
+      VALUE "OriginalFilename", "afterline.exe"
+      VALUE "LegalCopyright", "MIT licence"
+    END
+  END
+  BLOCK "VarFileInfo"
+  BEGIN
+    VALUE "Translation", 0x409, 1200
+  END
+END

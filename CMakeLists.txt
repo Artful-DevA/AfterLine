@@ -133,6 +133,13 @@ if(AFTERLINE_BUILD_GUI)
     resources/resources.qrc
   )
   set_target_properties(afterline PROPERTIES AUTORCC ON)
+  if(WIN32)
+    # A windowed program (no console) with its icon and version details.
+    target_sources(afterline PRIVATE resources/windows/afterline.rc)
+    set_source_files_properties(resources/windows/afterline.rc PROPERTIES COMPILE_DEFINITIONS
+      "AFTERLINE_VERSION_MAJOR=${PROJECT_VERSION_MAJOR};AFTERLINE_VERSION_MINOR=${PROJECT_VERSION_MINOR};AFTERLINE_VERSION_PATCH=${PROJECT_VERSION_PATCH}")
+    set_target_properties(afterline PROPERTIES WIN32_EXECUTABLE ON)
+  endif()
   target_compile_options(afterline PRIVATE ${AFTERLINE_WARNINGS})
   target_link_libraries(afterline PRIVATE afterline_core
     Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Network Qt6::Svg)
@@ -179,6 +186,10 @@ if(AFTERLINE_BUILD_TESTS)
   afterline_test(test_models)
   # Needs a running PipeWire + WirePlumber session; tests/run-pipewire-tests.sh
   # starts a private one with virtual devices. Skips itself when none exists.
+  if(WIN32)
+    afterline_test(test_wasapi)
+    set_tests_properties(test_wasapi PROPERTIES TIMEOUT 120)
+  endif()
   if(NOT WIN32)
   afterline_test(test_pipewire)
   add_executable(afterline-fake-app tests/tools/fake_app.cpp)
