@@ -19,7 +19,9 @@ find_package(Threads REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(OPUS REQUIRED IMPORTED_TARGET opus)
 pkg_check_modules(OGG REQUIRED IMPORTED_TARGET ogg)
-pkg_check_modules(PIPEWIRE REQUIRED IMPORTED_TARGET libpipewire-0.3)
+if(NOT WIN32)
+  pkg_check_modules(PIPEWIRE REQUIRED IMPORTED_TARGET libpipewire-0.3)
+endif()
 pkg_check_modules(SQLITE REQUIRED IMPORTED_TARGET sqlite3)
 find_package(Qt6 6.2 REQUIRED COMPONENTS Core)
 
@@ -53,19 +55,33 @@ add_library(afterline_core STATIC
   src/core/Export.cpp
   src/core/Paths.cpp
   src/core/Json.cpp
-  src/audio/PipeWireGraph.cpp
-  src/audio/CaptureStream.cpp
+  src/audio/AppIdentity.cpp
   src/audio/TrackWriter.cpp
   src/audio/Recorder.cpp
-  src/audio/Player.cpp
   src/app/Database.cpp
   src/app/MeetingStore.cpp
   src/app/ModelCatalog.cpp
   src/app/Tasks.cpp
 )
+# Audio: PipeWire on Linux, WASAPI on Windows, behind the same classes.
+if(WIN32)
+  target_sources(afterline_core PRIVATE
+    src/audio/win/WasapiCommon.cpp
+    src/audio/win/WasapiGraph.cpp
+    src/audio/win/WasapiCapture.cpp
+    src/audio/win/WasapiPlayer.cpp)
+  target_compile_definitions(afterline_core PUBLIC UNICODE _UNICODE NOMINMAX WIN32_LEAN_AND_MEAN)
+  set(AFTERLINE_AUDIO_LIBS ole32 uuid mmdevapi ksuser)
+else()
+  target_sources(afterline_core PRIVATE
+    src/audio/PipeWireGraph.cpp
+    src/audio/CaptureStream.cpp
+    src/audio/Player.cpp)
+  set(AFTERLINE_AUDIO_LIBS PkgConfig::PIPEWIRE)
+endif()
 target_include_directories(afterline_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(afterline_core PUBLIC afterline_codec Qt6::Core Threads::Threads
-  PkgConfig::PIPEWIRE PkgConfig::SQLITE)
+  ${AFTERLINE_AUDIO_LIBS} PkgConfig::SQLITE)
 target_compile_options(afterline_core PRIVATE ${AFTERLINE_WARNINGS})
 target_compile_definitions(afterline_core PUBLIC QT_NO_KEYWORDS
   AFTERLINE_VERSION="${PROJECT_VERSION}"
@@ -163,6 +179,7 @@ if(AFTERLINE_BUILD_TESTS)
   afterline_test(test_models)
   # Needs a running PipeWire + WirePlumber session; tests/run-pipewire-tests.sh
   # starts a private one with virtual devices. Skips itself when none exists.
+  if(NOT WIN32)
   afterline_test(test_pipewire)
   add_executable(afterline-fake-app tests/tools/fake_app.cpp)
   target_include_directories(afterline-fake-app PRIVATE src)
@@ -170,6 +187,7 @@ if(AFTERLINE_BUILD_TESTS)
   target_compile_definitions(test_pipewire PRIVATE AFTERLINE_FAKE_APP="$<TARGET_FILE:afterline-fake-app>")
   add_dependencies(test_pipewire afterline-fake-app)
   set_tests_properties(test_pipewire PROPERTIES LABELS pipewire TIMEOUT 300 SKIP_RETURN_CODE 77)
+  endif()
 endif()
 
 # ---------------------------------------------------------------------------

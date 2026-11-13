@@ -13,6 +13,10 @@
 #include <cmath>
 #include <ctime>
 
+#ifdef Q_OS_WIN
+#include "audio/win/WasapiCommon.h"
+#endif
+
 namespace afterline {
 
 using audio::CaptureStream;
@@ -24,15 +28,45 @@ constexpr qint64 kStopFreeBytes = 200LL * 1024 * 1024;
 
 qint64 bootMinusMonotonicMs()
 {
+#ifdef Q_OS_WIN
+    // GetTickCount64 includes time asleep; the unbiased interrupt time does not.
+    ULONGLONG unbiased = 0;
+    QueryUnbiasedInterruptTime(&unbiased);
+    return qint64(GetTickCount64()) - qint64(unbiased / 10000);
+#else
     timespec boot{}, mono{};
     clock_gettime(CLOCK_BOOTTIME, &boot);
     clock_gettime(CLOCK_MONOTONIC, &mono);
     return (qint64(boot.tv_sec) - mono.tv_sec) * 1000 + (boot.tv_nsec - mono.tv_nsec) / 1000000;
+#endif
 }
 
 // Meeting applications that are running but not playing yet can still be
 // chosen: AfterLine links their audio as soon as it starts.
 struct KnownApp { const char *process; const char *key; const char *name; const char *icon; };
+#ifdef Q_OS_WIN
+const KnownApp kKnownApps[] = {
+    {"firefox", "bin:firefox", "Firefox", "firefox"},
+    {"chrome", "bin:chrome", "Google Chrome", "google-chrome"},
+    {"brave", "bin:brave", "Brave", "brave-browser"},
+    {"msedge", "bin:msedge", "Microsoft Edge", "microsoft-edge"},
+    {"zoom", "bin:zoom", "Zoom", "Zoom"},
+    {"discord", "bin:discord", "Discord", "discord"},
+    {"ms-teams", "bin:teams", "Microsoft Teams", "teams"},
+    {"slack", "bin:slack", "Slack", "slack"},
+    {"signal", "bin:signal", "Signal", "signal-desktop"},
+    {"webex", "bin:webex", "Webex", "webex"},
+};
+
+// Lower-case executable names without ".exe".
+QSet<QString> runningProcesses()
+{
+    QSet<QString> names;
+    for (const auto &p : audio::win::processes())
+        names.insert(QString::fromStdString(p.exe));
+    return names;
+}
+#else
 const KnownApp kKnownApps[] = {
     {"firefox", "bin:firefox", "Firefox", "firefox"},
     {"chrome", "bin:chrome", "Google Chrome", "google-chrome"},
@@ -58,6 +92,7 @@ QSet<QString> runningProcesses()
     }
     return names;
 }
+#endif
 
 }  // namespace
 
@@ -75,12 +110,16 @@ RecordingController::RecordingController(MeetingStore &store, QObject *parent) :
             const bool disconnected = e.type == audio::GraphEvent::Disconnected;
             QMetaObject::invokeMethod(this, [this, disconnected] {
                 if (disconnected) {
+#ifdef Q_OS_WIN
+                    m_audioError = tr("The Windows audio service stopped.");
+#else
                     m_audioError = tr("The PipeWire audio service stopped.");
+#endif
                     if (recording()) {
                         event("audio-service", tr("The audio service stopped; the recording was saved."));
                         Q_EMIT warning(tr("Audio service stopped"),
-                                       tr("The system's audio service (PipeWire) stopped, so AfterLine cannot "
-                                          "capture audio any more. The recording up to now was saved."));
+                                       tr("The system's audio service stopped, so AfterLine cannot capture "
+                                          "audio any more. The recording up to now was saved."));
                         stop();
                     }
                 }
@@ -132,11 +171,18 @@ void RecordingController::checkAudioSetup()
                              "see your speakers or microphone. Ubuntu 22.10 and later, Linux Mint 22, Fedora, "
                              "Debian 12+ and Arch use PipeWire by default; on Ubuntu 22.04 and Linux Mint 21 you can "
                              "switch to it (see “Ubuntu 22.04 and Linux Mint 21” on the AfterLine website).");
-    if (!devices && runningProcesses().contains("pulseaudio"))
+#ifdef Q_OS_WIN
+    const bool pulseaudio = false;
+    const QString none = tr("Windows reports no speakers or microphones.");
+#else
+    const bool pulseaudio = runningProcesses().contains("pulseaudio");
+    const QString none = tr("PipeWire is running but reports no speakers or microphones.");
+#endif
+    if (!devices && pulseaudio)
         m_audioError = pulse;
     else if (!devices)
-        m_audioError = tr("PipeWire is running but reports no speakers or microphones.");
-    else if (m_audioError == pulse || m_audioError.startsWith(tr("PipeWire is running but")))
+        m_audioError = none;
+    else if (m_audioError == pulse || m_audioError == none)
         m_audioError.clear();
 }
 

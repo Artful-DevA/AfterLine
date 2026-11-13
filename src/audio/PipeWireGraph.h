@@ -86,7 +86,7 @@ public:
     // Connects to the user's PipeWire daemon and waits for the initial graph.
     bool start(std::string *error);
     void stop();
-    bool running() const { return m_loop != nullptr; }
+    bool running() const;
     bool connected() const;
 
     std::vector<NodeInfo> nodes() const;
