@@ -4,18 +4,9 @@ name: Windows
 # the tests including a Windows audio smoke test, and builds the installer.
 # Publishing it with releases comes once the Windows version has been tried
 # on real machines.
+# Parked: Windows ships only if enough people ask for it. Runs only when
+# started by hand (Actions → Windows → Run workflow).
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'src/**'
-      - 'engines/**'
-      - 'cmake/**'
-      - 'tests/**'
-      - 'resources/**'
-      - 'CMakeLists.txt'
-      - 'packaging/windows/**'
-      - '.github/workflows/windows.yml'
   workflow_dispatch:
 
 concurrency:

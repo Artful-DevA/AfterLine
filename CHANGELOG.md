@@ -10,7 +10,7 @@ All notable changes to AfterLine are documented here. The format follows
 - A banner tells you when a new version is out (once a day, only the version number is fetched from GitHub; can be switched off).
 - Settings → Help and feedback: "Report a problem" and "Suggest an idea" open a pre-filled GitHub issue with system details and recent logs that you can review first. Failed processing gets a "Report this" button.
 - Flatpak build, ready for Flathub. The app ID is now io.github.Artful_DevA.AfterLine.
-- Groundwork for Windows.
+- Groundwork for a possible Windows version (not released).
 - Tasks are only real follow-ups: plans a speaker describes (in webinars, talks, classes) and things done during the meeting ("answer the poll", "turn to page 5") are no longer listed. Other people's tasks still are.
 - Delete a task with the × in My tasks; it is also removed from the meeting's notes. Ticking tasks off works as before.
 - New tagline: "Be in the meeting, not in your notes."
