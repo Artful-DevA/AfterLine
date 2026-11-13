@@ -88,7 +88,7 @@ QString systemDetails(const AppContext &ctx)
     lines << QString("Qt: %1").arg(qVersion());
     if (ctx.recording) {
         const std::string pw = ctx.recording->graph().serverVersion();
-        lines << QString("PipeWire: %1").arg(pw.empty() ? QString("not connected") : QString::fromStdString(pw));
+        lines << QString("Audio: %1").arg(pw.empty() ? QString("not connected") : QString::fromStdString(pw));
     }
     lines << QString("CPU: %1 (%2 threads), RAM: %3").arg(cpuName()).arg(QThread::idealThreadCount()).arg(memory());
     if (ctx.settings) {

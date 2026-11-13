@@ -228,8 +228,13 @@ int Application::run(bool startHidden)
     if (!m_ctx.recording->audioAvailable())
         QTimer::singleShot(400, m_window, [this] {
             ui::inform(m_window, tr("Audio service not available"),
+#ifdef Q_OS_WIN
+                                 tr("AfterLine could not connect to Windows audio, so it cannot record. Your existing "
+                                    "meetings are available.\n\n%1")
+#else
                                  tr("AfterLine could not connect to PipeWire, the system's audio service, so it cannot "
                                     "record. Your existing meetings are available.\n\n%1")
+#endif
                                      .arg(m_ctx.recording->audioError()),
                        ui::Tone::Warning, "speaker");
         });

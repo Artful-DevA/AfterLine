@@ -380,7 +380,7 @@ SettingsView::SettingsView(AppContext ctx, QWidget *parent) : QWidget(parent), m
             [] { QDesktopServices::openUrl(QUrl::fromLocalFile(logsDir())); });
 
     section(tr("About"));
-    v->addWidget(label(tr("AfterLine %1 · Private meeting notes for Linux.<br>Open source under the MIT licence. Built with "
+    v->addWidget(label(tr("AfterLine %1 · Private meeting notes.<br>Open source under the MIT licence. Built with "
                           "Qt, PipeWire, Opus, SQLite, whisper.cpp and llama.cpp; see the third-party notices "
                           "installed with the application.<br><a href='https://afterline-linux.netlify.app'>Website</a>"
                           " · <a href='https://github.com/Artful-DevA/AfterLine'>Source code and issues</a>")
