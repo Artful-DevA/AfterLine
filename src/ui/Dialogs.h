@@ -12,6 +12,7 @@ class QWidget;
 
 namespace afterline {
 struct FolderInfo;
+struct AppContext;
 }
 
 namespace afterline::ui {
@@ -31,6 +32,11 @@ bool askText(QWidget *parent, const QString &title, const QString &text, QString
 // Creates or edits a folder: name, icon and colour. Returns false when
 // cancelled. `taken`: names already used (case-insensitive).
 bool editFolder(QWidget *parent, FolderInfo *folder, bool isNew, const QStringList &taken);
+// "Report a problem" (idea = false) or "Suggest an idea": opens a pre-filled
+// GitHub issue in the browser, or copies the report.
+// `error`: an error message the app showed, added to the description.
+void reportProblem(QWidget *parent, const AppContext &ctx, bool idea = false, const QString &error = {});
+
 // Icons and colours a folder can have.
 const QStringList &folderIcons();
 const QStringList &folderColors();

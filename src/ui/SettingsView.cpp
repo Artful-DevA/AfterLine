@@ -355,11 +355,29 @@ SettingsView::SettingsView(AppContext ctx, QWidget *parent) : QWidget(parent), m
     section(tr("Privacy"));
     v->addWidget(label(
         tr("AfterLine has no account, sends no telemetry, and never uploads your meetings. The only network access "
-           "is downloading models when you ask for them; you can disconnect from the internet and everything else "
-           "keeps working.")));
+           "is downloading models when you ask for them and, if you leave it on, a daily check for a new version; you "
+           "can disconnect from the internet and everything else keeps working.")));
     v->addWidget(label(tr("Recordings are not encrypted by AfterLine; use your system's disk encryption to protect "
                           "them if this computer is shared or could be lost."),
                        "Muted"));
+
+    section(tr("Help and feedback"),
+            tr("Found a bug or have an idea? AfterLine is made by one person, and every report helps."));
+    auto *fb = new QHBoxLayout;
+    fb->setSpacing(8);
+    auto *bug = new QPushButton(icon("alert", Theme::color(Token::Text)), tr("Report a problem"));
+    auto *idea = new QPushButton(icon("bulb", Theme::color(Token::Text)), tr("Suggest an idea"));
+    auto *logs = new QPushButton(icon("folder", Theme::color(Token::Text)), tr("Open logs folder"));
+    for (auto *b : {bug, idea, logs}) {
+        b->setCursor(Qt::PointingHandCursor);
+        fb->addWidget(b);
+    }
+    fb->addStretch();
+    v->addLayout(fb);
+    connect(bug, &QPushButton::clicked, this, [this] { reportProblem(this, m_ctx, false); });
+    connect(idea, &QPushButton::clicked, this, [this] { reportProblem(this, m_ctx, true); });
+    connect(logs, &QPushButton::clicked, this,
+            [] { QDesktopServices::openUrl(QUrl::fromLocalFile(logsDir())); });
 
     section(tr("About"));
     v->addWidget(label(tr("AfterLine %1 · Private meeting notes for Linux.<br>Open source under the MIT licence. Built with "

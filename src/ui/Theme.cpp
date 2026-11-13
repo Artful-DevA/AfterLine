@@ -185,6 +185,9 @@ QToolButton::menu-indicator, QPushButton::menu-indicator { image: none; width: 0
   font-size: 9.5pt; font-weight: 600; }
 #FolderChip:hover { border-color: @borderStrong; }
 #FolderNote { background: @accentSoftTrans; border-radius: 10px; }
+#LinkButton { background: transparent; border: 0; color: @accent; padding: 0; min-height: 22px; font-weight: 600; }
+#LinkButton:hover { color: @accentHover; text-decoration: underline; }
+#LinkButton:disabled { color: @muted; }
 #SmallButton { min-height: 28px; padding: 0 12px; border-radius: 8px; }
 #DialogCard { background: @surface; border: 1px solid @border; border-radius: 16px; }
 #DialogTitle { font-size: 13.5pt; font-weight: 650; }

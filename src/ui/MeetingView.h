@@ -75,7 +75,7 @@ private:
     QWidget *m_banner;
     QLabel *m_bannerText;
     QProgressBar *m_bannerProgress;
-    QPushButton *m_bannerAction, *m_bannerCancel;
+    QPushButton *m_bannerAction, *m_bannerCancel, *m_bannerReport;
     QTabWidget *m_tabs;
     NotesView *m_notes;
     TranscriptView *m_transcript;

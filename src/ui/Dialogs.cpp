@@ -2,12 +2,18 @@
 #include "ui/Dialogs.h"
 
 #include "app/MeetingStore.h"
+#include "app/ProblemReport.h"
 
 #include "ui/Icons.h"
 #include "ui/Theme.h"
 #include "ui/Widgets.h"
 
 #include <QButtonGroup>
+#include <QClipboard>
+#include <QDesktopServices>
+#include <QFontDatabase>
+#include <QPlainTextEdit>
+#include <QTimer>
 #include <QDialog>
 #include <QGridLayout>
 #include <QToolButton>
@@ -147,6 +153,17 @@ public:
         return b;
     }
     QVBoxLayout *body() { return m_body; }
+    // A button on the left of the row, which does not close the dialog.
+    void insertButton(int index, QPushButton *b) { m_buttons->insertWidget(index, b); }
+    // After content was shown or hidden: grow or shrink, keeping the centre.
+    void refit()
+    {
+        const QPoint centre = geometry().center();
+        layout()->activate();
+        resize(width(), layout()->totalSizeHint().height());
+        move(centre - rect().center());
+        applyMask();
+    }
 
     int run()
     {
@@ -154,11 +171,7 @@ public:
         if (parentWidget())
             scrim = new Scrim(parentWidget()->window());
         adjustSize();
-        if (!m_translucent) {
-            QPainterPath path;
-            path.addRoundedRect(QRectF(rect()), 16, 16);
-            setMask(QRegion(path.toFillPolygon().toPolygon()));
-        }
+        applyMask();
         if (QWidget *w = parentWidget()) {
             const QRect r = w->window()->frameGeometry();
             move(r.center() - rect().center());
@@ -169,6 +182,14 @@ public:
     }
 
 private:
+    void applyMask()
+    {
+        if (m_translucent)
+            return;
+        QPainterPath path;
+        path.addRoundedRect(QRectF(rect()), 16, 16);
+        setMask(QRegion(path.toFillPolygon().toPolygon()));
+    }
     bool m_translucent = false;
     QLabel *m_text = nullptr;
     QVBoxLayout *m_body;
@@ -217,6 +238,86 @@ bool askText(QWidget *parent, const QString &title, const QString &text, QString
         return false;
     *value = edit->text().trimmed();
     return true;
+}
+
+void reportProblem(QWidget *parent, const AppContext &ctx, bool idea, const QString &error)
+{
+    using report::Kind;
+    const Kind kind = idea ? Kind::Idea : Kind::Problem;
+    Card d(parent, idea ? QObject::tr("Suggest an idea") : QObject::tr("Report a problem"),
+           idea ? QObject::tr("What would make AfterLine better for you?")
+                : QObject::tr("Tell us what went wrong. The more detail, the faster it gets fixed."),
+           Tone::Info, idea ? "bulb" : "alert");
+    auto *title = new QLineEdit;
+    title->setPlaceholderText(idea ? QObject::tr("In a few words, e.g. “Export notes to PDF”")
+                                   : QObject::tr("In a few words, e.g. “Recording stops after a few minutes”"));
+    d.body()->addWidget(title);
+    auto *desc = new QPlainTextEdit;
+    desc->setPlaceholderText(idea ? QObject::tr("Describe the idea, and how you would use it.")
+                                  : QObject::tr("What did you do, what happened, and what did you expect?"));
+    desc->setMinimumHeight(110);
+    if (!error.isEmpty())
+        desc->setPlainText(QObject::tr("AfterLine showed this error: %1\n\n").arg(error));
+    desc->setTabChangesFocus(true);
+    d.body()->addWidget(desc);
+
+    const QString details = report::systemDetails(ctx);
+    const QString logs = idea ? QString() : report::recentLogs();
+    auto *include = new ToggleSwitch(idea ? QObject::tr("Include my AfterLine version and system")
+                                          : QObject::tr("Include system details and recent logs"));
+    include->setChecked(true);
+    d.body()->addWidget(include);
+    auto *show = new QPushButton(QObject::tr("See what's included"));
+    show->setObjectName("LinkButton");
+    show->setFlat(true);
+    show->setCursor(Qt::PointingHandCursor);
+    d.body()->addWidget(show, 0, Qt::AlignLeft);
+    auto *preview = new QPlainTextEdit(details + (logs.isEmpty() ? QString() : "\n\n" + logs));
+    preview->setReadOnly(true);
+    preview->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
+    preview->setFixedHeight(150);
+    preview->setLineWrapMode(QPlainTextEdit::NoWrap);
+    preview->hide();
+    d.body()->addWidget(preview);
+    QObject::connect(show, &QPushButton::clicked, &d, [&d, show, preview] {
+        preview->setVisible(!preview->isVisible());
+        show->setText(preview->isVisible() ? QObject::tr("Hide details") : QObject::tr("See what's included"));
+        d.refit();
+    });
+    QObject::connect(include, &QCheckBox::toggled, show, &QWidget::setEnabled);
+    auto *note = label(QObject::tr("Opens GitHub in your browser, where you can check everything before posting "
+                                   "(a free GitHub account is needed). Nothing is sent by AfterLine itself. "
+                                   "No account? Copy the report and send it to the developer."),
+                       "Muted");
+    d.body()->addWidget(note);
+
+    auto *copy = new QPushButton(QObject::tr("Copy report"));
+    copy->setCursor(Qt::PointingHandCursor);
+    d.addButton(QObject::tr("Cancel"), nullptr, false);
+    auto *open = d.addButton(QObject::tr("Open GitHub"), "Primary", true);
+    open->setEnabled(false);
+    open->setDefault(true);
+    QObject::connect(title, &QLineEdit::textChanged, open,
+                     [open](const QString &t) { open->setEnabled(!t.trimmed().isEmpty()); });
+    auto text = [&] {
+        const bool with = include->isChecked();
+        return QString("%1\n\n%2").arg(title->text().trimmed(),
+                                        report::body(kind, desc->toPlainText(), with ? details : QString(),
+                                                     with ? logs : QString()));
+    };
+    QObject::connect(copy, &QPushButton::clicked, &d, [copy, text] {
+        QGuiApplication::clipboard()->setText(text());
+        copy->setText(QObject::tr("Copied"));
+        QTimer::singleShot(2000, copy, [copy] { copy->setText(QObject::tr("Copy report")); });
+    });
+    d.insertButton(0, copy);
+    title->setFocus();
+    if (d.run() != QDialog::Accepted)
+        return;
+    const bool with = include->isChecked();
+    const QString prefix = idea ? QString("Idea: ") : QString();
+    QDesktopServices::openUrl(report::issueUrl(kind, prefix + title->text().trimmed(), desc->toPlainText(),
+                                               with ? details : QString(), with ? logs : QString()));
 }
 
 const QStringList &folderIcons()

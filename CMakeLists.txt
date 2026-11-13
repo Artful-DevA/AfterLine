@@ -95,6 +95,7 @@ if(AFTERLINE_BUILD_GUI)
     src/app/Processing.cpp
     src/app/ProcessControl.cpp
     src/app/UpdateChecker.cpp
+    src/app/ProblemReport.cpp
     src/app/LiveTranscriber.cpp
     src/app/DesktopNotifier.cpp
     src/app/RecordingController.cpp

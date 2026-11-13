@@ -158,6 +158,10 @@ MeetingView::MeetingView(AppContext ctx, QWidget *parent) : QWidget(parent), m_c
     m_bannerAction = new QPushButton;
     m_bannerAction->setObjectName("Primary");
     m_bannerCancel = new QPushButton(tr("Cancel"));
+    m_bannerReport = new QPushButton(tr("Report this"));
+    m_bannerReport->setToolTip(tr("Tell the developer, with the error and recent logs"));
+    connect(m_bannerReport, &QPushButton::clicked, this, [this] { reportProblem(this, m_ctx, false, m_meeting.lastError); });
+    bl->addWidget(m_bannerReport);
     bl->addWidget(m_bannerAction);
     bl->addWidget(m_bannerCancel);
     v->addWidget(m_banner);
@@ -355,6 +359,7 @@ void MeetingView::updateBanner()
         return;
     disconnect(m_bannerAction, &QPushButton::clicked, nullptr, nullptr);
     m_bannerCancel->hide();
+    m_bannerReport->hide();
     m_bannerProgress->hide();
     m_bannerAction->hide();
     QString text;
@@ -380,6 +385,7 @@ void MeetingView::updateBanner()
         text = m_meeting.lastError;
         m_bannerAction->setText(tr("Try again"));
         m_bannerAction->show();
+        m_bannerReport->show();
         const bool t = m_meeting.transcriptState == "failed";
         connect(m_bannerAction, &QPushButton::clicked, this, [this, t] { t ? startTranscription() : startNotes(); });
     } else if (!m_meeting.hasTranscript() && m_meeting.hasAudio()) {

@@ -53,8 +53,10 @@ Processing::~Processing()
         // engine's exit is not recorded as a failure.
         m_proc->disconnect(this);
         requestEngineStop(m_proc);
-        if (!m_proc->waitForFinished(3000))
+        if (!m_proc->waitForFinished(3000)) {
             m_proc->kill();
+            m_proc->waitForFinished(1000);
+        }
     }
 }
 
