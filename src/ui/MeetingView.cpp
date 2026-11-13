@@ -29,6 +29,8 @@
 #include <QLineEdit>
 #include <QLocale>
 #include <QMenu>
+#include <QShortcut>
+#include <QKeyEvent>
 #include <QProgressBar>
 #include <QPushButton>
 #include <QSplitter>
@@ -63,6 +65,11 @@ MeetingView::MeetingView(AppContext ctx, QWidget *parent) : QWidget(parent), m_c
     // input box waiting for text.
     m_title->setFocusPolicy(Qt::ClickFocus);
     m_title->setAccessibleName(tr("Meeting title"));
+    m_title->setToolTip(tr("Click to rename (F2)"));
+    m_title->installEventFilter(this);
+    auto *renameKey = new QShortcut(QKeySequence(Qt::Key_F2), this);
+    renameKey->setContext(Qt::WidgetWithChildrenShortcut);
+    connect(renameKey, &QShortcut::activated, this, [this] { rename(); });
     head->addWidget(m_title, 1);
     auto *ask = new QPushButton(icon("ask"), tr("Ask"));
     ask->setToolTip(tr("Ask a question about this meeting (Ctrl+K)"));
@@ -74,6 +81,7 @@ MeetingView::MeetingView(AppContext ctx, QWidget *parent) : QWidget(parent), m_c
     head->addWidget(exportBtn);
     auto *more = iconButton("more", tr("More actions"));
     auto *menu = new QMenu(more);
+    menu->addAction(icon("edit"), tr("Rename"), this, &MeetingView::rename);
     QMenu *folderMenu = menu->addMenu(icon("folder"), tr("Move to folder"));
     connect(folderMenu, &QMenu::aboutToShow, this, [this, folderMenu] { fillFolderMenu(folderMenu); });
     menu->addAction(icon("tag"), tr("Edit tags…"), this, &MeetingView::editTags);
@@ -256,6 +264,29 @@ MeetingView::MeetingView(AppContext ctx, QWidget *parent) : QWidget(parent), m_c
 }
 
 MeetingView::~MeetingView() = default;
+
+bool MeetingView::eventFilter(QObject *watched, QEvent *event)
+{
+    if (watched == m_title && event->type() == QEvent::KeyPress) {
+        const int key = static_cast<QKeyEvent *>(event)->key();
+        if (key == Qt::Key_Escape) {  // cancel: back to the saved title
+            m_title->setText(m_meeting.title);
+            m_title->clearFocus();
+            return true;
+        }
+        if (key == Qt::Key_Return || key == Qt::Key_Enter) {
+            m_title->clearFocus();  // saves (editingFinished)
+            return true;
+        }
+    }
+    return QWidget::eventFilter(watched, event);
+}
+
+void MeetingView::rename()
+{
+    m_title->setFocus(Qt::ShortcutFocusReason);
+    m_title->selectAll();
+}
 
 void MeetingView::open(const QString &meetingId, double seekTo)
 {

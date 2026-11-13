@@ -105,6 +105,7 @@ Q_SIGNALS:
     void tasksClicked();
     void organizeRequested();  // file unfiled meetings with AI
     void foldersChanged();
+    void meetingRenamed(const QString &meetingId);
 
 private:
     void reloadFilters();

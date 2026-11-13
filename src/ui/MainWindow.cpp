@@ -191,6 +191,10 @@ MainWindow::MainWindow(AppContext ctx, QWidget *parent) : QMainWindow(parent), m
     connect(m_library, &LibraryView::settingsClicked, this, &MainWindow::showSettings);
     connect(m_library, &LibraryView::openMeeting, this, &MainWindow::showMeeting);
     connect(m_library, &LibraryView::tasksClicked, this, &MainWindow::showTasks);
+    connect(m_library, &LibraryView::meetingRenamed, this, [this](const QString &id) {
+        if (m_pages->currentWidget() == m_meeting && m_meeting->meetingId() == id)
+            m_meeting->reload();
+    });
     connect(m_library, &LibraryView::foldersChanged, this, [this] {
         if (m_pages->currentWidget() == m_meeting)
             m_meeting->reload();

@@ -45,6 +45,12 @@ public:
     void toggleAsk();
     void findInTranscript();
     void closeMeeting();
+    void rename();  // puts the cursor in the title, text selected
+
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override;
+
+public:
 
 Q_SIGNALS:
     void deleted(const QString &meetingId);

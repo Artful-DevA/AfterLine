@@ -6,6 +6,9 @@ All notable changes to AfterLine are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Rename meetings: right-click a meeting in the sidebar → Rename…, "Rename" in the meeting's ⋯ menu, F2, or click the title. Enter saves, Escape cancels.
+
 ## [0.2.3] - 2026-11-13
 
 ### Added

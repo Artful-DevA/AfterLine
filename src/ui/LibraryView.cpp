@@ -619,6 +619,18 @@ void LibraryView::meetingMenu(const QPoint &pos)
     const QString id = idx.data(LibraryModel::MeetingIdRole).toString();
     const MeetingInfo m = m_ctx.store->get(id);
     QMenu menu(this);
+    menu.addAction(icon("edit"), tr("Rename…"), this, [this, id] {
+        MeetingInfo m = m_ctx.store->get(id);
+        QString title = m.title;
+        if (!askText(this, tr("Rename meeting"), {}, &title, tr("Meeting title"), tr("Rename")) ||
+            title == m.title)
+            return;
+        m.title = title;
+        m.titleIsAuto = false;
+        m_ctx.store->save(m);
+        refresh();
+        Q_EMIT meetingRenamed(id);
+    });
     QMenu *move = menu.addMenu(icon("folder"), tr("Move to folder"));
     for (const auto &f : m_ctx.store->folders()) {
         QAction *a = move->addAction(icon(f.icon, folderColor(f.color)), f.name, this, [this, id, name = f.name] {
