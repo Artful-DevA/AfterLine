@@ -6,6 +6,8 @@ All notable changes to AfterLine are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-11-13
+
 ### Added
 - A banner tells you when a new version is out (once a day, only the version number is fetched from GitHub; can be switched off).
 - Settings → Help and feedback: "Report a problem" and "Suggest an idea" open a pre-filled GitHub issue with system details and recent logs that you can review first. Failed processing gets a "Report this" button.

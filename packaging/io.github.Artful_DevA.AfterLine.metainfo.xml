@@ -66,6 +66,14 @@
     <id>io.github.AfterLine</id>
   </replaces>
   <releases>
+    <release version="0.2.3" date="2026-11-13">
+      <description>
+        <p>My tasks only lists real follow-ups (not plans described in a talk or
+        steps done during the meeting), and tasks can be deleted. AfterLine tells
+        you when a new version is out, and Settings has "Report a problem" and
+        "Suggest an idea".</p>
+      </description>
+    </release>
     <release version="0.2.2" date="2026-11-12">
       <description>
         <p>Call suggestions and alerts are desktop notifications with a Record
