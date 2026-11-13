@@ -126,17 +126,17 @@ if(AFTERLINE_BUILD_GUI)
   endif()
 
   install(TARGETS afterline RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
-  install(FILES packaging/io.github.AfterLine.desktop
+  install(FILES packaging/io.github.Artful_DevA.AfterLine.desktop
           DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
-  install(FILES packaging/io.github.AfterLine.metainfo.xml
+  install(FILES packaging/io.github.Artful_DevA.AfterLine.metainfo.xml
           DESTINATION ${CMAKE_INSTALL_DATADIR}/metainfo)
   install(FILES resources/icons/afterline.svg
           DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps
-          RENAME io.github.AfterLine.svg)
+          RENAME io.github.Artful_DevA.AfterLine.svg)
   foreach(size 16 24 32 48 64 128 256 512)
     install(FILES resources/icons/hicolor/afterline-${size}.png
             DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/${size}x${size}/apps
-            RENAME io.github.AfterLine.png)
+            RENAME io.github.Artful_DevA.AfterLine.png)
   endforeach()
   install(FILES LICENSE THIRD_PARTY_NOTICES.md
           DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/afterline)

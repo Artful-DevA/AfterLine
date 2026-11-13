@@ -6,6 +6,13 @@ All notable changes to AfterLine are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- A banner tells you when a new version is out (once a day, only the version number is fetched from GitHub; can be switched off).
+- Settings → Help and feedback: "Report a problem" and "Suggest an idea" open a pre-filled GitHub issue with system details and recent logs that you can review first. Failed processing gets a "Report this" button.
+- Flatpak build, ready for Flathub. The app ID is now io.github.Artful_DevA.AfterLine.
+- Groundwork for Windows.
+- New tagline: "Be in the meeting, not in your notes."
+
 ## [0.2.2] - 2026-11-12
 
 ### Changed

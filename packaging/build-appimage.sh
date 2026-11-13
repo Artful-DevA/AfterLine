@@ -64,8 +64,8 @@ done
 [ -n "$ENGINES" ] || { echo "engines missing from AppDir" >&2; exit 1; }
 # shellcheck disable=SC2086
 "linuxdeploy-$ARCH.AppImage" --appdir AppDir $ENGINES \
-    --desktop-file AppDir/usr/share/applications/io.github.AfterLine.desktop \
-    --icon-file AppDir/usr/share/icons/hicolor/256x256/apps/io.github.AfterLine.png \
+    --desktop-file AppDir/usr/share/applications/io.github.Artful_DevA.AfterLine.desktop \
+    --icon-file AppDir/usr/share/icons/hicolor/256x256/apps/io.github.Artful_DevA.AfterLine.png \
     --plugin qt
 # linuxdeploy fixes the copies it puts in usr/bin, but AfterLine starts the
 # engines from their own folders: point those at the bundled libraries (Qt,

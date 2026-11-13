@@ -43,11 +43,11 @@ bool DesktopNotifier::show(const QString &title, const QString &body, const QLis
             actionList << "default" << tr("Open");
         for (const auto &a : actions)
             actionList << a.key << a.label;
-        QVariantMap hints{{"desktop-entry", "io.github.AfterLine"}, {"urgency", QVariant::fromValue<uchar>(urgent ? 2 : 1)}};
+        QVariantMap hints{{"desktop-entry", "io.github.Artful_DevA.AfterLine"}, {"urgency", QVariant::fromValue<uchar>(urgent ? 2 : 1)}};
         if (!actions.isEmpty())
             hints.insert("resident", false);
         const QDBusReply<uint> reply =
-            iface.call("Notify", QString("AfterLine"), uint(0), QString("io.github.AfterLine"), title, body, actionList,
+            iface.call("Notify", QString("AfterLine"), uint(0), QString("io.github.Artful_DevA.AfterLine"), title, body, actionList,
                        hints, int(actions.isEmpty() ? 8000 : 60000));
         if (reply.isValid()) {
             if (onClick || !actions.isEmpty())

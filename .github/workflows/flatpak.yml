@@ -1,0 +1,59 @@
+name: Flatpak
+
+# Builds the Flatpak (the same recipe Flathub uses) and checks that the app's
+# engines run inside the sandbox. Separate from the release packages, so a
+# Flatpak problem never holds up a release.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packaging/flatpak/**'
+      - 'packaging/*.desktop'
+      - 'packaging/*.metainfo.xml'
+      - 'CMakeLists.txt'
+      - 'cmake/**'
+      - 'engines/**'
+      - '.github/workflows/flatpak.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: flatpak-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  flatpak:
+    name: Build Flatpak
+    runs-on: ubuntu-24.04
+    env:
+      MANIFEST: packaging/flatpak/io.github.Artful_DevA.AfterLine.yml
+      APP_ID: io.github.Artful_DevA.AfterLine
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install flatpak-builder
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q flatpak flatpak-builder appstream
+          flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+      - name: Check the app metadata
+        run: |
+          desktop-file-validate packaging/$APP_ID.desktop
+          appstreamcli validate --no-net --explain packaging/$APP_ID.metainfo.xml
+      - name: Build
+        run: |
+          flatpak-builder --user --install-deps-from=flathub --disable-rofiles-fuse --force-clean \
+            --repo=repo --install --ccache build "$MANIFEST"
+      - name: Run the engines inside the sandbox
+        run: |
+          for e in transcriber summarizer; do
+            flatpak run --command=/app/lib/afterline/$e/afterline-$e $APP_ID --version
+          done
+          flatpak run --command=sh $APP_ID -c 'QT_QPA_PLATFORM=offscreen afterline --version'
+      - name: Bundle
+        run: flatpak build-bundle repo AfterLine-x86_64.flatpak $APP_ID --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo
+      - uses: actions/upload-artifact@v4
+        with:
+          name: flatpak
+          path: AfterLine-x86_64.flatpak

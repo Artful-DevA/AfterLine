@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-  <id>io.github.AfterLine</id>
+  <id>io.github.Artful_DevA.AfterLine</id>
   <name>AfterLine</name>
   <summary>Private, offline meeting recorder with transcripts and notes</summary>
   <metadata_license>CC0-1.0</metadata_license>
@@ -21,7 +21,7 @@
       or power cut never costs you the meeting.
     </p>
   </description>
-  <launchable type="desktop-id">io.github.AfterLine.desktop</launchable>
+  <launchable type="desktop-id">io.github.Artful_DevA.AfterLine.desktop</launchable>
   <url type="homepage">https://afterline-linux.netlify.app</url>
   <url type="bugtracker">https://github.com/Artful-DevA/AfterLine/issues</url>
   <url type="vcs-browser">https://github.com/Artful-DevA/AfterLine</url>
@@ -30,6 +30,41 @@
     <category>Office</category>
   </categories>
   <content_rating type="oars-1.1"/>
+  <branding>
+    <color type="primary" scheme_preference="light">#F0D9CC</color>
+    <color type="primary" scheme_preference="dark">#5C3D31</color>
+  </branding>
+  <screenshots>
+    <screenshot type="default">
+      <caption>Meeting notes with decisions and action items, each linked to the moment it was said</caption>
+      <image>https://afterline-linux.netlify.app/screenshots/notes.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Recording a call with a live transcript</caption>
+      <image>https://afterline-linux.netlify.app/screenshots/recording.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>My tasks: everything you promised, across all meetings</caption>
+      <image>https://afterline-linux.netlify.app/screenshots/tasks.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Ask questions about your meetings</caption>
+      <image>https://afterline-linux.netlify.app/screenshots/ask.png</image>
+    </screenshot>
+  </screenshots>
+  <requires>
+    <display_length compare="ge">768</display_length>
+  </requires>
+  <recommends>
+    <memory>8192</memory>
+  </recommends>
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+  </supports>
+  <replaces>
+    <id>io.github.AfterLine</id>
+  </replaces>
   <releases>
     <release version="0.2.2" date="2026-11-12">
       <description>

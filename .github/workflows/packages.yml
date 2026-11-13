@@ -157,9 +157,9 @@ jobs:
           QT_QPA_PLATFORM=offscreen afterline --version
           QT_QPA_PLATFORM=offscreen afterline --help
           if [ "${{ matrix.kind }}" != appimage ]; then
-            test -f /usr/share/applications/io.github.AfterLine.desktop
-            test -f /usr/share/icons/hicolor/scalable/apps/io.github.AfterLine.svg
-            test -f /usr/share/metainfo/io.github.AfterLine.metainfo.xml
+            test -f /usr/share/applications/io.github.Artful_DevA.AfterLine.desktop
+            test -f /usr/share/icons/hicolor/scalable/apps/io.github.Artful_DevA.AfterLine.svg
+            test -f /usr/share/metainfo/io.github.Artful_DevA.AfterLine.metainfo.xml
             engines=$(dirname "$(find /usr/lib* -path '*/transcriber/afterline-transcriber' -type f | head -1)")/..
           else
             engines=$(dirname "$(find dist/squashfs-root -path '*/transcriber/afterline-transcriber' -type f | head -1)")/..

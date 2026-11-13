@@ -27,7 +27,7 @@ int main(int argc, char **argv)
     QApplication::setApplicationName("AfterLine");
     QApplication::setOrganizationName("AfterLine");
     QApplication::setApplicationVersion(AFTERLINE_VERSION);
-    QApplication::setDesktopFileName("io.github.AfterLine");
+    QApplication::setDesktopFileName("io.github.Artful_DevA.AfterLine");
     QApplication::setWindowIcon(QIcon(":/icons/afterline.svg"));
     // The tray keeps a recording running after the window closes.
     QApplication::setQuitOnLastWindowClosed(false);

@@ -112,7 +112,7 @@ struct CaptureStream::Impl {
         channels = input ? 1 : 2;
         pw_properties *props = pw_properties_new(
             PW_KEY_MEDIA_TYPE, "Audio", PW_KEY_MEDIA_CATEGORY, "Capture",
-            PW_KEY_APP_NAME, "AfterLine", PW_KEY_APP_ICON_NAME, "io.github.AfterLine",
+            PW_KEY_APP_NAME, "AfterLine", PW_KEY_APP_ICON_NAME, "io.github.Artful_DevA.AfterLine",
             PW_KEY_NODE_NAME, input ? "afterline-microphone" : "afterline-computer-audio",
             PW_KEY_NODE_DESCRIPTION,
             config().description.empty() ? "AfterLine recording" : config().description.c_str(),
