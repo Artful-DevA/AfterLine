@@ -5,6 +5,8 @@
 #include "core/Notes.h"
 
 #include <QFile>
+#include <QJsonDocument>
+#include <QSaveFile>
 #include <QJsonArray>
 #include <QRegularExpression>
 
@@ -59,6 +61,58 @@ bool setTaskDone(const MeetingStore &store, const QString &meetingId, const QStr
     else
         set.remove(task);
     return saveDoneTasks(m.path("tasks.json"), set);
+}
+
+bool deleteTask(MeetingStore &store, const QString &meetingId, const QString &task)
+{
+    const MeetingInfo m = store.get(meetingId);
+    if (!m.isValid() || task.isEmpty())
+        return false;
+    bool removed = false;
+    MeetingNotes n = loadNotes(m.path("notes.json"));
+    if (!n.isEmpty()) {
+        QJsonArray kept;
+        for (const auto v : n.data["action_items"].toArray()) {
+            if (!removed && v.toObject()["task"].toString() == task) {
+                removed = true;
+                continue;
+            }
+            kept << v;
+        }
+        if (removed) {
+            n.data["action_items"] = kept;
+            QSaveFile f(m.path("notes.json"));
+            if (!f.open(QIODevice::WriteOnly))
+                return false;
+            f.write(QJsonDocument(n.data).toJson(QJsonDocument::Indented));
+            if (!f.commit())
+                return false;
+        }
+    }
+    // Notes edited by hand: drop the list line that holds this task.
+    QFile md(m.path("notes.md"));
+    if (md.open(QIODevice::ReadOnly)) {
+        QStringList lines = QString::fromUtf8(md.readAll()).split('\n');
+        md.close();
+        static const QRegularExpression item(R"(^\s*[-*]\s+(\[[ xX]\]\s+)?)");
+        for (int i = 0; i < lines.size(); ++i) {
+            if (item.match(lines[i]).hasMatch() && lines[i].contains(task)) {
+                lines.removeAt(i);
+                QSaveFile f(m.path("notes.md"));
+                if (f.open(QIODevice::WriteOnly)) {
+                    f.write(lines.join('\n').toUtf8());
+                    removed = f.commit() || removed;
+                }
+                break;
+            }
+        }
+    }
+    QSet<QString> done = loadDoneTasks(m.path("tasks.json"));
+    if (done.remove(task))
+        saveDoneTasks(m.path("tasks.json"), done);
+    if (removed)
+        store.reindex(meetingId);
+    return removed;
 }
 
 bool isTaskQuestion(const QString &question)

@@ -25,6 +25,8 @@ struct TaskItem {
 // Only meetings in `meetingIds` when it is not empty.
 QVector<TaskItem> collectTasks(const MeetingStore &store, bool onlyMine, const QStringList &meetingIds = {});
 bool setTaskDone(const MeetingStore &store, const QString &meetingId, const QString &task, bool done);
+// Removes the action item from the meeting's notes (and from edited notes).
+bool deleteTask(MeetingStore &store, const QString &meetingId, const QString &task);
 // True for questions about tasks ("what do I need to do?", "my action items").
 bool isTaskQuestion(const QString &question);
 

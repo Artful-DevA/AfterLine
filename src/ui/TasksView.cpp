@@ -3,6 +3,7 @@
 
 #include "app/MeetingStore.h"
 #include "app/Tasks.h"
+#include "ui/Dialogs.h"
 #include "core/Transcript.h"
 #include "ui/Icons.h"
 #include "ui/Theme.h"
@@ -205,7 +206,25 @@ void TasksView::reload()
         auto *play = new QLabel;
         play->setPixmap(icon("play", Theme::color(Token::Accent)).pixmap(14, 14));
         h->addWidget(play, 0, Qt::AlignTop);
+        auto *remove = new QPushButton(icon("close", Theme::color(Token::Muted)), {});
+        remove->setObjectName("TaskDelete");
+        remove->setFlat(true);
+        remove->setFixedSize(26, 26);
+        remove->setIconSize(QSize(14, 14));
+        remove->setCursor(Qt::PointingHandCursor);
+        remove->setToolTip(tr("Delete this task"));
+        remove->setAccessibleName(tr("Delete: %1").arg(t.task));
+        h->addWidget(remove, 0, Qt::AlignTop);
         const QString meetingId = t.meetingId, task = t.task;
+        connect(remove, &QPushButton::clicked, this, [this, meetingId, task] {
+            if (!confirm(this, tr("Delete this task?"),
+                         tr("“%1” is removed from My tasks and from the meeting's notes.").arg(task), tr("Delete"),
+                         Tone::Danger, "trash"))
+                return;
+            deleteTask(*m_ctx.store, meetingId, task);
+            Q_EMIT changed();
+            reload();
+        });
         const double start = t.start;
         row->onOpen = [this, meetingId, start] { Q_EMIT openMeeting(meetingId, start); };
         connect(tick, &QAbstractButton::toggled, this, [this, meetingId, task](bool on) {

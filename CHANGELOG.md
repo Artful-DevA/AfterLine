@@ -11,6 +11,7 @@ All notable changes to AfterLine are documented here. The format follows
 - Settings → Help and feedback: "Report a problem" and "Suggest an idea" open a pre-filled GitHub issue with system details and recent logs that you can review first. Failed processing gets a "Report this" button.
 - Flatpak build, ready for Flathub. The app ID is now io.github.Artful_DevA.AfterLine.
 - Groundwork for Windows.
+- Delete a task with the × in My tasks; it is also removed from the meeting's notes. Ticking tasks off works as before.
 - New tagline: "Be in the meeting, not in your notes."
 
 ## [0.2.2] - 2026-11-12

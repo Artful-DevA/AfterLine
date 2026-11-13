@@ -3,6 +3,7 @@
 // diacritics), deletion, rebuilding a lost index, and crash recovery.
 #include "app/MeetingStore.h"
 #include "app/Tasks.h"
+#include "core/Notes.h"
 #include "audio/Recorder.h"
 #include "core/Json.h"
 #include "core/OggOpus.h"
@@ -198,6 +199,23 @@ private Q_SLOTS:
         QVERIFY(collectTasks(store, true)[0].done);
         QVERIFY(setTaskDone(store, m.id, "Send the slides", false));
         QVERIFY(!collectTasks(store, true)[0].done);
+
+        // Deleting removes it from the notes, the edited notes and the ticks.
+        QVERIFY(setTaskDone(store, m.id, "Book the room", true));
+        QFile md(m.path("notes.md"));
+        QVERIFY(md.open(QIODevice::WriteOnly));
+        md.write("## Action items\n\n- [ ] Send the slides (You)\n- [x] Book the room (Maria)\n");
+        md.close();
+        QVERIFY(deleteTask(store, m.id, "Book the room"));
+        const auto left = collectTasks(store, false);
+        QCOMPARE(left.size(), 1);
+        QCOMPARE(left[0].task, QString("Send the slides"));
+        QVERIFY(md.open(QIODevice::ReadOnly));
+        const QString edited = QString::fromUtf8(md.readAll());
+        QVERIFY(!edited.contains("Book the room"));
+        QVERIFY(edited.contains("Send the slides"));
+        QVERIFY(!loadDoneTasks(m.path("tasks.json")).contains("Book the room"));
+        QVERIFY(!deleteTask(store, m.id, "Book the room"));
     }
 
     void recognisesQuestionsAboutTasks()
