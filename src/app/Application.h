@@ -15,6 +15,7 @@ class ModelManager;
 class Processing;
 class RecordingController;
 class LiveTranscriber;
+class UpdateChecker;
 class DesktopNotifier;
 
 namespace ui {
@@ -29,6 +30,7 @@ struct AppContext {
     Processing *processing = nullptr;
     RecordingController *recording = nullptr;
     LiveTranscriber *live = nullptr;
+    UpdateChecker *updates = nullptr;
 };
 
 class Application : public QObject {

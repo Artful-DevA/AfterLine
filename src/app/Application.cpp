@@ -2,6 +2,7 @@
 #include "app/Application.h"
 
 #include "app/DesktopNotifier.h"
+#include "app/UpdateChecker.h"
 #include "app/LiveTranscriber.h"
 #include "app/MeetingStore.h"
 #include "app/ModelManager.h"
@@ -75,6 +76,7 @@ Application::Application() = default;
 Application::~Application()
 {
     delete m_window;
+    delete m_ctx.updates;
     delete m_ctx.live;
     delete m_ctx.recording;  // stops and saves any recording
     delete m_ctx.processing;
@@ -134,6 +136,8 @@ int Application::run(bool startHidden)
     m_ctx.processing = new Processing(*m_ctx.store, *m_ctx.settings);
     m_ctx.recording = new RecordingController(*m_ctx.store);
     m_ctx.live = new LiveTranscriber(*m_ctx.settings, *m_ctx.store);
+    m_ctx.updates = new UpdateChecker(*m_ctx.settings);
+    m_ctx.updates->start();
 
     connect(m_ctx.recording, &RecordingController::recordingStarted, this, [this] {
         m_ctx.processing->setRecordingActive(true);

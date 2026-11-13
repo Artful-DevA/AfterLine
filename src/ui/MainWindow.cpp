@@ -7,6 +7,7 @@
 #include "app/Processing.h"
 #include "app/RecordingController.h"
 #include "app/Settings.h"
+#include "app/UpdateChecker.h"
 #include "core/Transcript.h"
 #include "ui/Dialogs.h"
 #include "ui/Icons.h"
@@ -19,6 +20,8 @@
 #include "ui/Widgets.h"
 
 #include <QApplication>
+#include <QDesktopServices>
+#include <QUrl>
 #include <QCloseEvent>
 #include <QGridLayout>
 #include <QHBoxLayout>
@@ -35,6 +38,62 @@
 
 namespace afterline::ui {
 
+QWidget *MainWindow::buildUpdateBanner()
+{
+    // A new version is out: a slim bar above every page until it is
+    // downloaded or dismissed (dismissing skips that version).
+    auto *outer = new QWidget;
+    auto *ov = new QVBoxLayout(outer);
+    ov->setContentsMargins(16, 12, 16, 0);
+    auto *bar = new QWidget;
+    bar->setObjectName("Banner");
+    bar->setAttribute(Qt::WA_StyledBackground);
+    auto *h = new QHBoxLayout(bar);
+    h->setContentsMargins(14, 8, 8, 8);
+    h->setSpacing(10);
+    auto *ic = new QLabel;
+    ic->setPixmap(icon("rocket", Theme::color(Token::Accent)).pixmap(18, 18));
+    h->addWidget(ic);
+    auto *text = label({});
+    text->setTextFormat(Qt::RichText);
+    h->addWidget(text, 1);
+    auto *whatsNew = new QPushButton(tr("What's new"));
+    whatsNew->setObjectName("SmallButton");
+    whatsNew->setCursor(Qt::PointingHandCursor);
+    auto *download = new QPushButton(icon("download", Theme::color(Token::OnAccent)), tr("Download"));
+    download->setObjectName("Primary");
+    download->setCursor(Qt::PointingHandCursor);
+    auto *close = new QPushButton(icon("close", Theme::color(Token::Muted)), {});
+    close->setObjectName("SmallButton");
+    close->setFlat(true);
+    close->setToolTip(tr("Not now (skip this version)"));
+    close->setCursor(Qt::PointingHandCursor);
+    h->addWidget(whatsNew);
+    h->addWidget(download);
+    h->addWidget(close);
+    ov->addWidget(bar);
+
+    UpdateChecker *updates = m_ctx.updates;
+    auto refresh = [outer, text, updates] {
+        const QString v = updates ? updates->available() : QString();
+        outer->setVisible(!v.isEmpty());
+        if (!v.isEmpty())
+            text->setText(tr("<b>AfterLine %1 is out.</b> You have %2.").arg(v, AFTERLINE_VERSION));
+    };
+    refresh();
+    if (updates) {
+        connect(updates, &UpdateChecker::availableChanged, outer, refresh);
+        connect(close, &QPushButton::clicked, updates, &UpdateChecker::skip);
+        connect(whatsNew, &QPushButton::clicked, this, [updates] {
+            QDesktopServices::openUrl(
+                QUrl("https://github.com/Artful-DevA/AfterLine/releases/tag/v" + updates->available()));
+        });
+    }
+    connect(download, &QPushButton::clicked, this,
+            [] { QDesktopServices::openUrl(QUrl("https://afterline-linux.netlify.app/#download")); });
+    return outer;
+}
+
 MainWindow::MainWindow(AppContext ctx, QWidget *parent) : QMainWindow(parent), m_ctx(ctx)
 {
     setWindowTitle("AfterLine");
@@ -50,7 +109,13 @@ MainWindow::MainWindow(AppContext ctx, QWidget *parent) : QMainWindow(parent), m
     m_library = new LibraryView(ctx);
     split->addWidget(m_library);
     m_pages = new QStackedWidget;
-    split->addWidget(m_pages);
+    auto *right = new QWidget;
+    auto *rv = new QVBoxLayout(right);
+    rv->setContentsMargins(0, 0, 0, 0);
+    rv->setSpacing(0);
+    rv->addWidget(buildUpdateBanner());
+    rv->addWidget(m_pages, 1);
+    split->addWidget(right);
     split->setStretchFactor(1, 1);
     split->setSizes({300, 900});
     setCentralWidget(split);

@@ -6,6 +6,7 @@
 #include "app/Processing.h"
 #include "app/RecordingController.h"
 #include "app/Settings.h"
+#include "app/UpdateChecker.h"
 #include "core/Paths.h"
 #include "ui/Dialogs.h"
 #include "ui/Icons.h"
@@ -221,6 +222,13 @@ SettingsView::SettingsView(AppContext ctx, QWidget *parent) : QWidget(parent), m
     v->addLayout(form);
     toggle(tr("Keep running in the system tray when the window is closed"), ctx.settings->closeToTray(),
            &Settings::setCloseToTray);
+    if (!UpdateChecker::managedElsewhere()) {
+        toggle(tr("Tell me when a new version is out"), ctx.settings->checkForUpdates(),
+               &Settings::setCheckForUpdates);
+        v->addWidget(label(tr("Once a day AfterLine asks GitHub for the latest version number. Nothing about you or "
+                              "your meetings is sent."),
+                           "Muted"));
+    }
     toggle(tr("Suggest recording when a call starts"), ctx.settings->suggestRecording(),
            &Settings::setSuggestRecording);
     v->addWidget(label(tr("When Zoom, Teams, Slack, Discord or a browser starts using your microphone, AfterLine "

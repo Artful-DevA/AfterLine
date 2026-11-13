@@ -34,6 +34,10 @@ public:
     void setSuggestRecording(bool on);
     bool liveTranscript() const;  // preliminary transcript while recording
     void setLiveTranscript(bool on);
+    bool checkForUpdates() const;  // once a day, the latest version number from GitHub
+    void setCheckForUpdates(bool on);
+    QString skippedVersion() const;
+    void setSkippedVersion(const QString &v);
     bool closeToTray() const;
     void setCloseToTray(bool on);
     bool includeMicrophone() const;

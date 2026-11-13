@@ -40,6 +40,7 @@ protected:
 
 private:
     void setupShortcuts();
+    QWidget *buildUpdateBanner();
     void onProcessingUpdate();
     AppContext m_ctx;
     QStackedWidget *m_pages;

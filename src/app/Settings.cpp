@@ -36,6 +36,10 @@ bool Settings::closeToTray() const { return m_s.value("ui/closeToTray", true).to
 void Settings::setCloseToTray(bool on) { m_s.setValue("ui/closeToTray", on); }
 bool Settings::autoOrganize() const { return m_s.value("processing/autoOrganize", true).toBool(); }
 void Settings::setAutoOrganize(bool on) { m_s.setValue("processing/autoOrganize", on); }
+bool Settings::checkForUpdates() const { return m_s.value("updates/check", true).toBool(); }
+void Settings::setCheckForUpdates(bool on) { m_s.setValue("updates/check", on); }
+QString Settings::skippedVersion() const { return m_s.value("updates/skipped").toString(); }
+void Settings::setSkippedVersion(const QString &v) { m_s.setValue("updates/skipped", v); }
 bool Settings::suggestRecording() const { return m_s.value("recording/suggest", false).toBool(); }
 void Settings::setSuggestRecording(bool on) { m_s.setValue("recording/suggest", on); }
 bool Settings::liveTranscript() const { return m_s.value("processing/liveTranscript", true).toBool(); }
