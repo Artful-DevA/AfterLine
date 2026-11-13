@@ -182,7 +182,7 @@ QString extractionGrammar()
 points ::= "[" ws ( point ( "," ws point ){0,7} )? ws "]"
 point ::= "{" ws "\"text\":" ws string "," ws "\"sources\":" ws ids ws "}"
 actions ::= "[" ws ( action ( "," ws action ){0,9} )? ws "]"
-action ::= "{" ws "\"task\":" ws string "," ws "\"owner\":" ws string "," ws "\"due\":" ws string "," ws "\"sources\":" ws ids ws "}"
+action ::= "{" ws "\"task\":" ws string "," ws "\"follow_up\":" ws ("true" | "false") "," ws "\"owner\":" ws string "," ws "\"due\":" ws string "," ws "\"sources\":" ws ids ws "}"
 dates ::= "[" ws ( date ( "," ws date ){0,7} )? ws "]"
 date ::= "{" ws "\"date\":" ws string "," ws "\"text\":" ws string "," ws "\"sources\":" ws ids ws "}"
 )") + kCommonRules;
@@ -208,7 +208,13 @@ QString extractionSystemPrompt(const QString &languageCode)
         "- Every item must cite the line numbers that support it in \"sources\".\n"
         "- Empty lists are correct when the transcript has nothing of that kind. Do not fill lists for the sake of it.\n"
         "- decisions: only things the participants clearly agreed on or decided.\n"
-        "- action_items: tasks someone will do. owner is the responsible person only if the transcript names "
+        "- action_items: follow-ups for after the meeting that someone taking part agreed to do or was asked "
+        "to do (\"I'll send the slides\", \"Maria, can you book the room?\", homework the teacher sets). They "
+        "are NOT: plans, goals or projects of companies, agencies or people that a speaker describes (\"NASA "
+        "plans to return to the Moon\"); general advice to an audience; or things done during the meeting itself "
+        "(\"open the slides\", \"answer the poll\", \"turn to page 5\", \"let's look at the demo\"). "
+        "Talks, lectures and webinars often have no action items at all. follow_up is true only for a real "
+        "follow-up for after the meeting. owner is the responsible person only if the transcript names "
         "them (\"You\" if the person who recorded said they will do it), otherwise \"\". due is a deadline only "
         "if one is stated, otherwise \"\".\n"
         "- open_questions: questions raised and not answered in this part.\n"
@@ -345,6 +351,30 @@ QString askUserPrompt(const QString &question, const QJsonArray &passages)
     return text + "\nQuestion: " + question + "\nAnswer as JSON.";
 }
 
+namespace {
+// Things done during the meeting itself ("answer the poll", "turn to page
+// 5"), which are not tasks however they are phrased.
+bool inSessionActivity(const QString &task)
+{
+    static const QRegularExpression re(
+        R"(\b(answer|fill in|fill out|take|vote in) the poll\b|\b(type|write|post|put|drop)\b.{0,30}\b(in|into) the chat\b|)"
+        R"(\bbreakout rooms?\b|\b(un)?mute\b|\braise (your|a|their) hands?\b|\bshare (your|the|their) screen\b|)"
+        R"(\b(open|turn to|go to|look at|scroll to) (the )?(slide|page)s? ?\d+\b|\bright now\b|)"
+        R"(\bduring (this|the) (call|class|lecture|lesson|session|webinar|meeting|presentation)\b)",
+        QRegularExpression::CaseInsensitiveOption);
+    return re.match(task).hasMatch();
+}
+
+// An action item is a follow-up for after the meeting: the model says so
+// (follow_up), and it is not an in-meeting activity.
+bool isFollowUp(const QJsonObject &item, const QString &text)
+{
+    if (item.contains("follow_up") && !item["follow_up"].toBool())
+        return false;
+    return !inSessionActivity(text);
+}
+}  // namespace
+
 QJsonObject validateSection(const QJsonObject &raw, const std::vector<Line> &section,
                             const std::vector<Line> &all, Stats *stats)
 {
@@ -377,6 +407,12 @@ QJsonObject validateSection(const QJsonObject &raw, const std::vector<Line> &sec
                 continue;
             }
             item["sources"] = sources;
+            if (std::string(key) == "action_items" && !isFollowUp(item, text)) {
+                if (stats)
+                    stats->notFollowUps++;
+                continue;
+            }
+            item.remove("follow_up");
             const QString context = textAround(all, sources, 2);
             if (item.contains("owner")) {
                 const QString owner = item["owner"].toString().trimmed();

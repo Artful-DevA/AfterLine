@@ -202,6 +202,36 @@ private Q_SLOTS:
         QCOMPARE(out["action_items"].toArray()[1].toObject()["owner"].toString(), QString());
     }
 
+    void keepsOnlyRealFollowUpsAsTasks()
+    {
+        const auto all = lines();
+        const QJsonObject raw{{"action_items", QJsonArray{
+            QJsonObject{{"task", "Prepare release documentation"}, {"follow_up", true}, {"owner", "Maria"},
+                        {"due", "Friday"}, {"sources", QJsonArray{2}}},
+            // A plan the speaker described, flagged by the model.
+            QJsonObject{{"task", "Land astronauts on Mars by 2040"}, {"follow_up", false}, {"owner", ""},
+                        {"due", ""}, {"sources", QJsonArray{1}}},
+            // In-meeting steps, even when the model gets them wrong.
+            QJsonObject{{"task", "Answer the poll"}, {"follow_up", true}, {"owner", ""}, {"due", ""},
+                        {"sources", QJsonArray{1}}},
+            QJsonObject{{"task", "Turn to page 5"}, {"follow_up", true}, {"owner", ""}, {"due", ""},
+                        {"sources", QJsonArray{1}}},
+            QJsonObject{{"task", "Type your questions in the chat"}, {"follow_up", true}, {"owner", ""},
+                        {"due", ""}, {"sources", QJsonArray{1}}},
+            // Mentions slides, but is a real task.
+            QJsonObject{{"task", "Send the slides to the team"}, {"follow_up", true}, {"owner", ""},
+                        {"due", ""}, {"sources", QJsonArray{3}}},
+        }}};
+        notes::Stats stats;
+        const QJsonObject out = notes::validateSection(raw, all, all, &stats);
+        const QJsonArray tasks = out["action_items"].toArray();
+        QCOMPARE(tasks.size(), 2);
+        QCOMPARE(tasks[0].toObject()["task"].toString(), QString("Prepare release documentation"));
+        QCOMPARE(tasks[1].toObject()["task"].toString(), QString("Send the slides to the team"));
+        QVERIFY(!tasks[0].toObject().contains("follow_up"));
+        QCOMPARE(stats.notFollowUps, 4);
+    }
+
     void mergesDuplicatesAcrossSections()
     {
         const QJsonObject a{{"summary", "A"},

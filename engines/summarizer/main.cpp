@@ -377,7 +377,7 @@ int main(int argc, char **argv)
     merged["created"] = QDateTime::currentDateTimeUtc().toString(Qt::ISODate);
     merged["sections"] = parts;
     merged["checks"] = QJsonObject{{"unsupportedItemsRemoved", stats.dropped},
-                                   {"ownersCleared", stats.ownersCleared},
+                                   {"ownersCleared", stats.ownersCleared}, {"notFollowUps", stats.notFollowUps},
                                    {"deadlinesCleared", stats.datesCleared}};
     if (!writeJsonFile(output, merged, &error))
         fail("Could not save the notes: " + error);

@@ -50,6 +50,7 @@ struct Stats {
     int dropped = 0;        // items removed for lack of valid citations
     int ownersCleared = 0;  // owners not found in the cited lines
     int datesCleared = 0;   // deadlines not found in the cited lines
+    int notFollowUps = 0;   // "tasks" that are not follow-ups (plans described, in-meeting steps)
 };
 
 // Cleans one section's model output. `all` is the whole transcript (for
